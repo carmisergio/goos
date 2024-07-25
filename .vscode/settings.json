@@ -1,0 +1,8 @@
+{
+  "files.associations": {
+    "*.in": "template_header",
+    "log.h": "c",
+    "serial.h": "c",
+    "boot_info.h": "c"
+  }
+}

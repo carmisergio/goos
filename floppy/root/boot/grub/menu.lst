@@ -1,0 +1,6 @@
+color green/black black/light-gray
+
+title GOOSE
+	kernel /boot/kernel.elf
+	boot
+
