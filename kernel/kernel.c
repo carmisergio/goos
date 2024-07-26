@@ -16,7 +16,7 @@ void kmain()
 {
     // Initialize kernel logging
     klog_init();
-    klog("GOOSE starting...\n");
+    klog("GOOS starting...\n");
     klog("Kernel load addr: %x, kernel end addr: %x\n", &_kernel_start, &_kernel_end);
 
     // Init physical page allocator

@@ -67,13 +67,18 @@ static void _mb_setup_boot_info_physmmap(multiboot_memory_map_t *mmap, uint32_t 
         // Check if memory is available
         // And if its address is below the 32-bit boundary
         if (mmap[i].type == MULTIBOOT_MEMORY_AVAILABLE &&
-            mmap[i].len < UINT32_MAX)
+            mmap[i].addr < UINT32_MAX)
         {
             // Maximum physmmap entries exceeded
             if (boot_info.physmmap_n >= BOOT_INFO_PHYSMMAP_MAX_ENTRIES)
                 break;
 
-            _mb_add_physmmap_entry(mmap[i].addr, mmap[i].len);
+            // Truncate pages that go above 32-bit boundary
+            uint64_t len = mmap[i].len;
+            if (mmap[i].addr + len > UINT32_MAX)
+                len = UINT32_MAX - mmap[i].addr;
+
+            _mb_add_physmmap_entry(mmap[i].addr, len);
         }
     }
 }

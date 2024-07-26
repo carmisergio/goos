@@ -17,6 +17,10 @@ extern "C"
      */
     void physmem_init();
 
+    // TODO: document
+    static void physmem_free(void *addr);
+    static bool physmem_is_free(void *addr);
+
 #ifdef __cplusplus
 }
 #endif

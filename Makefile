@@ -5,7 +5,7 @@ KERNEL_DIR:= kernel
 KERNEL_BIN:= $(KERNEL_DIR)/kernel.elf
 
 FLOPPY_DIR:= floppy
-FLOPPY_IMG:= $(FLOPPY_DIR)/goose.img
+FLOPPY_IMG:= $(FLOPPY_DIR)/goos.img
 
 QEMU:=qemu-system-i386
 
