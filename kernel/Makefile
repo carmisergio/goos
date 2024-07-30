@@ -22,6 +22,7 @@ KERNEL_OBJS =\
 boot/multiboot.o \
 kernel.o \
 log.o \
+panic.o \
 mem/physmem.o \
 drivers/serial.o \
 drivers/vga.o

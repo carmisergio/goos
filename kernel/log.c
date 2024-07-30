@@ -9,6 +9,7 @@
 static void _klog_format(char *buf, const char *fmt, va_list args);
 static void _klog_format_int(char **buf, long long val);
 static void _klog_format_hex(char **buf, long long val);
+static void _klog_format_str(char **buf, char *str);
 
 enum arg_len
 {
@@ -103,6 +104,7 @@ static void _klog_format(char *buf, const char *fmt, va_list args)
         }
 
         long long val;
+        char *str;
 
         // Evaluate specifier
         switch (*fmt)
@@ -151,6 +153,13 @@ static void _klog_format(char *buf, const char *fmt, va_list args)
 
             // Format value
             _klog_format_hex(&buf, val);
+            fmt++;
+            break;
+
+        case 's':
+            // String
+            str = (char *)va_arg(args, void *);
+            _klog_format_str(&buf, str);
             fmt++;
             break;
         }
@@ -254,5 +263,23 @@ static void _klog_format_hex(char **buf, long long val)
         char tmp = *(*buf - i - 1);
         *(*buf - i - 1) = *(*buf - ndigits + i);
         *(*buf - ndigits + i) = tmp;
+    }
+}
+
+/*
+ * Render null-terminated string
+ *
+ * Params:
+ *     char *buf: pointer to pointer to buffer into which to output formatted string
+ *     char *str: pointer to the string
+ * Returns: void
+ */
+static void _klog_format_str(char **buf, char *str)
+{
+    while (*str)
+    {
+        **buf = *str;
+        (*buf)++;
+        str++;
     }
 }

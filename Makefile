@@ -34,7 +34,7 @@ debug: $(KERNEL_BIN)
 	
 # Write generated floppy image with Greaseweazle
 gw_write: $(FLOPPY_IMG)
-	gw write --format ibm.1440 --drive B $(FLOPPY_IMG)
+	gw write --format ibm.1440 --drive B --no-verify $(FLOPPY_IMG)
 
 clean:
 	$(MAKE) -C $(KERNEL_DIR) clean

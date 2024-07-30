@@ -78,6 +78,10 @@ void vga_clearscreen()
             vga_buffer[index] = entry;
         }
     }
+
+    // Reset cursor
+    vga_col = 0;
+    vga_row = 0;
 }
 
 /* Internal functions */

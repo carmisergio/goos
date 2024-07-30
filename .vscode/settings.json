@@ -3,6 +3,7 @@
     "*.in": "template_header",
     "log.h": "c",
     "serial.h": "c",
-    "boot_info.h": "c"
+    "boot_info.h": "c",
+    "physmem.h": "c"
   }
 }

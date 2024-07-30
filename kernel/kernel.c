@@ -4,9 +4,29 @@
 #include "log.h"
 #include "mem/physmem.h"
 #include "boot_info.h"
+#include "panic.h"
 
 // Boot information structure
 boot_info_t boot_info;
+
+void alloc_test()
+{
+    void *mem;
+    uint32_t tot = 0;
+    for (int i = 0; i < 5000; i++)
+    {
+        mem = physmem_alloc();
+        if (mem != PHYSMEM_NULL)
+        {
+            tot += 4;
+            klog("Allocated memory: %d KiB\n", tot);
+        }
+        else
+        {
+            panic("OUT_OF_MEMORY");
+        }
+    }
+}
 
 /*
  * Main kernel entry point
@@ -21,4 +41,6 @@ void kmain()
 
     // Init physical page allocator
     physmem_init();
+
+    alloc_test();
 }

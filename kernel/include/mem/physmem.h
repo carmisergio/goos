@@ -8,6 +8,8 @@ extern "C"
 {
 #endif
 
+#define PHYSMEM_NULL (void *)UINT32_MAX
+
     /*
      * Initialize physical memory page allocator
      *
@@ -18,8 +20,9 @@ extern "C"
     void physmem_init();
 
     // TODO: document
-    static void physmem_free(void *addr);
-    static bool physmem_is_free(void *addr);
+    void *physmem_alloc();
+    void physmem_free(void *addr);
+    bool physmem_is_free(void *addr);
 
 #ifdef __cplusplus
 }
