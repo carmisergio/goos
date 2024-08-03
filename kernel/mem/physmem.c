@@ -5,7 +5,7 @@
 
 #include "log.h"
 #include "mem/physmem.h"
-#include "mem/common.h"
+#include "mem/c_paging.h"
 #include "boot_info.h"
 #include "panic.h"
 

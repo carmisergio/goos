@@ -5,12 +5,15 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "multiboot_structs.h"
+#include "boot/multiboot_structs.h"
 #include "boot_info.h"
-#include "mem/common.h"
+#include "mem/c_paging.h"
 #include "kernel.h"
 
 #include "drivers/serial.h"
+
+// Pointer to the physical address of the boot info struct
+boot_info_t *boot_info_phys = (boot_info_t *)((void *)&boot_info - KERNEL_OFFSET);
 
 // Internal function prototypes
 static void _mb_setup_boot_info(multiboot_info_t *mbd);
@@ -18,25 +21,22 @@ static void _mb_setup_boot_info_physmmap(multiboot_memory_map_t *mmap, uint32_t 
 static void _mb_add_physmmap_entry(uint32_t start, uint32_t size);
 
 /**
- * Multiboot entry point
+ * Multiboot initialization entry point
  */
-void multiboot_entry(multiboot_info_t *mbd, uint32_t magic)
+int multiboot_init(multiboot_info_t *mbd, uint32_t magic)
 {
     // Check bootloader identification, exit if wront
     if (magic != MULTIBOOT_BOOTLOADER_MAGIC)
-        return;
+        return 1;
 
     // Check if memory map is present in multiboot info struct
     if (!(mbd->flags & MULTIBOOT_INFO_MEM_MAP))
-        return;
-
-    serial_init(COM1);
+        return 1;
 
     // Set up boot_info struct from multiboot info struct
     _mb_setup_boot_info(mbd);
 
-    // Kall kernel main function
-    kmain();
+    return 0;
 }
 
 /*
@@ -56,7 +56,7 @@ static void _mb_setup_boot_info(multiboot_info_t *mbd)
 static void _mb_setup_boot_info_physmmap(multiboot_memory_map_t *mmap, uint32_t len)
 {
     // Initialize physmmap
-    boot_info.physmmap_n = 0;
+    boot_info_phys->physmmap_n = 0;
 
     // Calc number of entries
     uint32_t n = len / sizeof(multiboot_memory_map_t);
@@ -70,7 +70,7 @@ static void _mb_setup_boot_info_physmmap(multiboot_memory_map_t *mmap, uint32_t 
             mmap[i].addr < UINT32_MAX)
         {
             // Maximum physmmap entries exceeded
-            if (boot_info.physmmap_n >= BOOT_INFO_PHYSMMAP_MAX_ENTRIES)
+            if (boot_info_phys->physmmap_n >= BOOT_INFO_PHYSMMAP_MAX_ENTRIES)
                 break;
 
             // Truncate pages that go above 32-bit boundary
@@ -98,6 +98,11 @@ static void _mb_add_physmmap_entry(uint32_t start, uint32_t size)
     // NOTE: page align starting address
 
     // Add it to phys_mmap
-    boot_info.physmmap[boot_info.physmmap_n] = new_entry;
-    boot_info.physmmap_n++;
+    boot_info_phys->physmmap[boot_info.physmmap_n] = new_entry;
+    boot_info_phys->physmmap_n++;
+}
+
+int test_func()
+{
+    return 0;
 }

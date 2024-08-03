@@ -1,8 +1,6 @@
 #ifndef _PHYSMEM_H
 #define _PHYSMEM_H 1
 
-#include "multiboot_structs.h"
-
 #ifdef __cplusplus
 extern "C"
 {

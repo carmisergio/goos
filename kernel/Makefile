@@ -13,6 +13,7 @@ LIBS:=$(LIBS) -nostdlib -lgcc
 # There was -lk here but it doesn't compile with it on
 
 LINK_SCRIPT:=linker.ld
+LINK_SCRIPT_INT:=linker.ld.i
 INCLUDE:=-Iinclude -Iklibc/include
 
 # Add flags specified by architecture
@@ -54,23 +55,28 @@ boot/crtn.o \
 
 all: $(KERNEL_BIN)
 	
-$(KERNEL_BIN): $(OBJS) $(LINK_SCRIPT)
+$(KERNEL_BIN): $(OBJS) $(LINK_SCRIPT_INT)
 # 	Note: $@ refers to the name of the current target
-	$(CC) -T $(LINK_SCRIPT) -o $@ $(CFLAGS) $(LDFLAGS) $(LINK_LIST) 
+	$(CC) -T $(LINK_SCRIPT_INT)  -o $@ $(CFLAGS) $(LDFLAGS) $(LINK_LIST) 
 
 # These files are provided by the compiler, copy them to known locations
 boot/crtbegin.o boot/crtend.o:
 	OBJ=`$(CC) $(CFLAGS) $(LDFLAGS) -print-file-name=$(@F)` && cp "$$OBJ" $@
+	
+# Preprocess linker script
+$(LINK_SCRIPT_INT): $(LINK_SCRIPT)
+	$(CC) -E -P -xc -DLINKER_SCRIPT $(LINK_SCRIPT) $(INCLUDE) > $@
+
 
 %.o: %.c
 	$(CC) -c $< -o $@ -std=gnu11 $(CFLAGS) $(CPPFLAGS) $(INCLUDE)
 
-%.o: %.s
-	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS)
+%.o: %.S
+	$(CC) -c $< -o $@ $(CFLAGS) $(CPPFLAGS) $(INCLUDE)
 
 clean:
 	rm -f $(KERNEL_BIN)
-	rm -f $(OBJS) *.o */*.o */*/*.o
+	rm -f $(OBJS) *.o */*.o */*/*.o *.i
 	rm -f $(OBJS:.o=.d) *.d */*.d */*/*.d
 
 # -include $(OBJS:.o=.d)
