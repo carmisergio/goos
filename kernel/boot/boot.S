@@ -6,8 +6,6 @@
 .set FLAGS,    ALIGN | MEMINFO  # this is the Multiboot 'flag' field
 .set MAGIC,    0x1BADB002       # multiboot magic number
 .set CHECKSUM, -(MAGIC + FLAGS) # checksum
-	
-# Higher half kernel load address
 
 # Multiboot header
 .section .multiboot
@@ -27,11 +25,11 @@ stack_top:
  .section .bss
  .align MEM_PAGE_SIZE
  bootstrap_page_dir:
- 	.skip 4096
- bootstrap_page_table_1:
-	.skip 4096
- bootstrap_page_table_2:
-	.skip 4096
+ 	.space 4096, 0
+ bootstrap_page_table_low:
+	.space 4096, 0
+ bootstrap_page_table_high:
+	.space 4096, 0
 	
 
 # Kernel entry point
@@ -57,6 +55,7 @@ _start:
 	call 	kmain
 
 	# Hang if kernel_main unexpectedly returns.
+_init_failure:
 	cli
 1:	hlt
 	jmp 	1b
@@ -113,3 +112,72 @@ _compute_kern_virt_pde_offset:
 						// Of the addresses
 	shl 	$2, %edx	// Multiply by 4 to obtain byte offset
 	ret
+	
+/*
+ * Set page directory entry to point to page table
+ * Inputs:
+ *   - %eax: pointer to the page directory
+ * 	 - %ebx: pointer to the page table (page aligned)
+ *   - %edx: address of an address in the range mapped by this page table
+*/
+_set_page_dir_entry:
+	push %eax
+	push %ebx
+	push %ecx
+	push %edx
+	
+	// Compute byte offset into the page directory in %edx
+	shr		$22, %edx	// NOTE: page directory handles first 12 bits
+						// of addres
+	shl		$2, %edx	// Each PDE takes up 4 bytes
+	
+	// Construct PDE in %ebx
+	or		$PDE_FLAG_PRESENT, %ebx // Set present flag
+	
+	// Set PDE in page directory
+	add 	%edx, %eax 	 	// PDE address = page table + offset
+	mov		%ebx, (%eax)	// Set PDE
+	
+	pop %edx
+	pop %ecx
+	pop %ebx
+	pop %eax
+	ret
+
+	
+/*
+ * Maps a range of physical addresses into the virtual address space
+ * Inputs:
+ *   - %eax: pointer to the page directory
+ * 	 - %ebx: physical address (page aligned)
+ *   - %ecx: size of range (bytes)
+ * 	 - %edx: virtual address (page aligned)
+ * Fail:
+ *   Jumps to _init_failure
+*/
+_map_address_range:
+	pusha
+	
+	// Calculate number of pages to map
+	add 	$4095, %ecx 	// Round division by excess
+	shr		$12, %ecx		// Divide by 4096
+	
+	// Iterate over all the pages in the address range
+_map_addr_range_lp:
+	
+	// Map page
+	call _map_page
+	
+	// Calculate next page addresses
+	add 	$4096, %ebx 	// Next page physical address
+	add 	$4096, %edx		// Next page virtual addressS
+
+	loop  	_map_addr_range_lp
+
+	popa
+	ret
+
+/*
+ *
+*/
+_map_page:

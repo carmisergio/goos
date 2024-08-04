@@ -15,4 +15,7 @@
 // Size of the address space covered by one PDE (4 MiB)
 #define PDE_ADDR_SPACE_SIZE (1024 * MEM_PAGE_SIZE)
 
+// PDE flags
+#define PDE_FLAG_PRESENT 0x1
+
 #endif
