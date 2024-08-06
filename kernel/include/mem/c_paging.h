@@ -18,4 +18,8 @@
 // PDE flags
 #define PDE_FLAG_PRESENT 0x1
 
+// CR0 bits
+#define CR0_PE 0x1
+#define CR0_PG 0x80000000
+
 #endif

@@ -25,11 +25,11 @@ stack_top:
  .section .bss
  .align MEM_PAGE_SIZE
  bootstrap_page_dir:
- 	.space 4096, 0
+ 	.skip 4096
  bootstrap_page_table_low:
-	.space 4096, 0
+	.skip 4096
  bootstrap_page_table_high:
-	.space 4096, 0
+	.skip 4096
 	
 
 # Kernel entry point
@@ -70,49 +70,84 @@ _init_failure:
  * - 0x10000 - 0x40000 -> 0x10000 - 0x40000  (Kernel identity mapping)
  * - 0x10000 - 0x40000 -> 0xC010000 - 0xC040000  (Kernel higher half mapping)
  * NOTE: This code assumes thtat the kernel's size is less than 3 MB
+ * NOTE: register eax is not preserved
 */
 _paging_init:
-	push 	%eax
 	push 	%ebx
 	push 	%ecx
 	push 	%edx
-	
-	// eax <- Kernel page directory physical address
-	mov 	$bootstrap_page_dir - KERNEL_OFFSET, %eax
-	
-	// Set bootstrap_page_table_1 at starting address 0 in page directory
-	mov		$bootstrap_page_table_1 - KERNEL_OFFSET, %ebx
-	or		$0x1, %ebx // Set present flag
-	mov 	%ebx, (bootstrap_page_dir - KERNEL_OFFSET)
 
-	// Set bootstrap_page_table_2 to map address specified by kernel virtual mapping
-	call 	_compute_kern_virt_pde_offset 	// Calculate offset in PDE
-	mov		$bootstrap_page_table_2 - KERNEL_OFFSET, %ebx
-	or		$0x1, %ebx // Set present flag
-	mov 	%ebx, (bootstrap_page_dir - KERNEL_OFFSET)(%edx) // PDE + offset
+	mov		$bootstrap_page_dir - KERNEL_OFFSET, %eax       // Pointer to page directory
+	
+	/********************************************
+	*          Set up page directory            *
+	********************************************/
+	
+	// Set up low PDE
+	mov 	$bootstrap_page_table_low - KERNEL_OFFSET, %ebx // Pointer to page table
+	mov		$0, %edx										// Map address
+	call 	_set_page_dir_entry
 
-	push 	%edx
-	push 	%ecx
-	push 	%ebx
-	push 	%eax
-	ret
+	// Set up high PDE
+	mov 	$bootstrap_page_table_high - KERNEL_OFFSET, %ebx // Pointer to page table
+	mov		$KERNEL_VIRT_ADDR, %edx						    // Map address
+	call 	_set_page_dir_entry
+
+	/********************************************
+	*            Set up page tables             *
+	********************************************/
 	
-/*
- * Compute offset of the higher half kernel mapping page table
- * in the page directory
- * Inputs: 
- * 	 global definition KERNEL_VIRT_ADDR
- * Outputs:
- *   %edx: offset
- */
-_compute_kern_virt_pde_offset:
-	mov	    $KERNEL_VIRT_ADDR, %edx
-	shr		$22, %edx	// Calc offset into page direcotry
-						// NOTE: page directory handles the first 12 bits
-						// Of the addresses
-	shl 	$2, %edx	// Multiply by 4 to obtain byte offset
-	ret
+	// Identity map A0000-100000 (Hardware memory)
+	mov		$0xA0000, %ebx	    // Physical address
+	mov		$0x60000, %ecx	    // Size
+	mov		$0xA0000, %edx	    // Virtual address
+	call    _map_address_range 
+
+	// Kernel identity mapping
+	mov 	$_kernel_end, %ecx   	// Calculate size of kernel
+	sub 	$_kernel_start, %ecx   
+	mov		$KERNEL_PHYS_ADDR, %ebx	            // Physical address
+	mov		$KERNEL_PHYS_ADDR, %edx	            // Virtual address
+	call    _map_address_range
+
+	// Kernel higher half mapping
+	mov		$KERNEL_PHYS_ADDR, %ebx	            // Physical address
+	mov		$KERNEL_VIRT_ADDR, %edx	            // Virtual address
+	// %ecx already contains size of kernel
+	call    _map_address_range
+
+
+	/********************************************
+	*               Enable paging               *
+	********************************************/
 	
+break_point:
+	
+	// Set CR3 (pointer to page directory)
+	// %eax already contains pointer to page directory
+	mov 	%eax, %cr3
+	
+	// Set paging and protection bits in CR0
+	mov		%cr0, %eax
+	or	    $(CR0_PE | CR0_PG), %eax	
+	mov		%eax, %cr0
+	
+	// Jump  to higher mapping of kernel
+	mov		$_paging_init_higher, %eax
+	
+_paging_init_higher:
+
+	pop 	%edx
+	pop 	%ecx
+	pop 	%ebx
+	
+	// Change return address to higher half kernel
+	pop 	%eax
+	add 	$KERNEL_OFFSET, %eax
+	push	%eax
+
+	ret
+
 /*
  * Set page directory entry to point to page table
  * Inputs:
@@ -121,10 +156,7 @@ _compute_kern_virt_pde_offset:
  *   - %edx: address of an address in the range mapped by this page table
 */
 _set_page_dir_entry:
-	push %eax
-	push %ebx
-	push %ecx
-	push %edx
+	pusha
 	
 	// Compute byte offset into the page directory in %edx
 	shr		$22, %edx	// NOTE: page directory handles first 12 bits
@@ -138,10 +170,7 @@ _set_page_dir_entry:
 	add 	%edx, %eax 	 	// PDE address = page table + offset
 	mov		%ebx, (%eax)	// Set PDE
 	
-	pop %edx
-	pop %ecx
-	pop %ebx
-	pop %eax
+	popa
 	ret
 
 	
@@ -178,6 +207,43 @@ _map_addr_range_lp:
 	ret
 
 /*
- *
+ * Maps one page into a virtual address space
+ * Inputs:
+ * 	 - %eax: Page directory address
+ * 	 - %ebx: Page physical address (page aligned)
+ *   - %edx: Page virtual address (page aligned)
 */
 _map_page:
+	pusha
+	
+	// Calc offset into page directory
+	mov		%edx, %ecx
+	shr		$22, %ecx	// NOTE: page directory handles first 10 bits
+						// of addres
+	shl		$2, %ecx	// Each PDE takes up 4 bytes
+	add 	%ecx, %eax  // %eax now contains address of correct PDE
+	
+	
+	// Check if page is present
+	//mov		(%eax), %ecx
+	//andl	$0x1, %ecx       // Check present bit in PDE
+	//jz 		_map_page_fail 	 // Fail if not present
+	
+	// Follow pointer to page table
+	mov 	(%eax), %eax
+	and		$0xFFFFF000, %eax // Ignore low bits (flags)
+	
+	// Compute offset in the page table
+	and		$0x3FFFFF, %edx	  // Ignore high bits (10 high bits index into the page directory)
+	shr		$12, %edx		  // Get index into page table
+	shl		$2, %edx		  // Each PTE is 4 bytes
+	add		%edx, %eax	 	  // Caluclate address of PTE
+	
+	// Map page
+	or		$0x1, %ebx	      // Set present bit
+	mov 	%ebx, (%eax)	  // Set PTE
+	
+_map_page_fail:
+
+	popa
+	ret

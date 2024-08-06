@@ -40,14 +40,11 @@ void kmain()
     serial_init(COM1);
     serial_prtstr(COM1, "HELLORLD!");
 
-    // uint16_t *buf = (uint16_t *)0xB8000;
-    // buf[0] = 0x0F41;
-
     // Initialize kernel logging
-    // klog_init();
-    // klog("GOOS starting...\n");
-    // klog("Hello from the higher half kernel!\n");
-    // klog("Kernel load addr: %x, kernel end addr: %x\n", &_kernel_start, &_kernel_end);
+    klog_init();
+    klog("GOOS starting...\n");
+    klog("Hello from the higher half kernel!\n");
+    klog("Kernel load addr: %x, kernel end addr: %x\n", &_kernel_start, &_kernel_end);
 
     // // Init physical page allocator
     // physmem_init();
