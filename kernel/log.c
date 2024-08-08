@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdint.h>
 
 #include "log.h"
 #include "drivers/serial.h"
@@ -7,8 +8,8 @@
 #define LOG_PORT COM1
 
 static void _klog_format(char *buf, const char *fmt, va_list args);
-static void _klog_format_int(char **buf, long long val);
-static void _klog_format_hex(char **buf, long long val);
+static void _klog_format_int(char **buf, uint32_t val);
+static void _klog_format_hex(char **buf, uint32_t val);
 static void _klog_format_str(char **buf, char *str);
 
 enum arg_len
@@ -177,7 +178,7 @@ static void _klog_format(char *buf, const char *fmt, va_list args)
  *     int val: value to format
  * Returns: void
  */
-static void _klog_format_int(char **buf, long long val)
+static void _klog_format_int(char **buf, uint32_t val)
 {
     int ndigits = 0;
 
@@ -223,7 +224,7 @@ static void _klog_format_int(char **buf, long long val)
  *     int val: value to format
  * Returns: void
  */
-static void _klog_format_hex(char **buf, long long val)
+static void _klog_format_hex(char **buf, uint32_t val)
 {
     int ndigits = 0;
 
@@ -238,7 +239,7 @@ static void _klog_format_hex(char **buf, long long val)
     while (val != 0)
     {
         // Get rightmost digit as ASCII character
-        int digit_val = val % 16;
+        uint8_t digit_val = val % 16;
         char digit;
         if (digit_val < 10)
             digit = digit_val + '0';
