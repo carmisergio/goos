@@ -4,6 +4,10 @@
     "log.h": "c",
     "serial.h": "c",
     "boot_info.h": "c",
-    "physmem.h": "c"
-  }
+    "physmem.h": "c",
+    "vmem.h": "c",
+    "boot.h": "c",
+    "c_paging.h": "c"
+  },
+  "C_Cpp.default.compilerPath": "/usr/bin/gcc"
 }

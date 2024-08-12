@@ -7,6 +7,7 @@
 #include "mem/physmem.h"
 #include "mem/c_paging.h"
 #include "boot_info.h"
+#include "boot/boot.h"
 #include "panic.h"
 
 // Bitmap global objects

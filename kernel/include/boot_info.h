@@ -30,8 +30,4 @@ typedef struct boot_info boot_info_t;
 // Boot info struct
 extern boot_info_t boot_info;
 
-// Kernel load information
-extern void *_kernel_start;
-extern void *_kernel_end;
-
 #endif

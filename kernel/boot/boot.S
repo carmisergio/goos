@@ -6,6 +6,7 @@
 .set FLAGS,    ALIGN | MEMINFO  # this is the Multiboot 'flag' field
 .set MAGIC,    0x1BADB002       # multiboot magic number
 .set CHECKSUM, -(MAGIC + FLAGS) # checksum
+.set BOOTLOADER_MAGIC, 0x2BADB002 # Bootloader magic number
 
 # Multiboot header
 .section .multiboot
@@ -18,17 +19,19 @@
 .section .bss
 .align 16
 stack_bottom:
- .skip 16385 # 16 KiB
+ 	.skip 16385 # 16 KiB
 stack_top:
 	
 # Bootstrap page tables
- .section .bss
- .align MEM_PAGE_SIZE
- bootstrap_page_dir:
- 	.skip 4096
- bootstrap_page_table_low:
+.section .bss
+.align MEM_PAGE_SIZE
+.global bootstrap_page_dir
+.type bootstrap_page_dir, @object
+bootstrap_page_dir:
 	.skip 4096
- bootstrap_page_table_high:
+bootstrap_page_table_low:
+	.skip 4096
+bootstrap_page_table_high:
 	.skip 4096
 	
 
@@ -39,9 +42,13 @@ stack_top:
 _start:
 	# Set up bootstrap stack (at physical address for now)
 	movl 	$stack_top - KERNEL_OFFSET, %esp
+	
+	// Check multiboot bootloader magic number
+	cmp     $BOOTLOADER_MAGIC, %eax
+	jne 	init_error
 
 	// Initialize paging
-	call _paging_init
+	call 	_paging_init
 	
 	// Update stack
 	movl 	$stack_top, %esp
@@ -50,12 +57,11 @@ _start:
 	call 	_init
 
 	# Transfer control to the kernel
-	push 	%eax # Pass multiboot info struct to kernel
-	push 	%ebx # Pass mulbitoot magic number to kernel
+	push 	%ebx # Pass multiboot info struct pointer to kernel
 	call 	kmain
 
 	# Hang if kernel_main unexpectedly returns.
-_init_failure:
+init_error:
 	cli
 1:	hlt
 	jmp 	1b
@@ -90,8 +96,14 @@ _paging_init:
 
 	// Set up high PDE
 	mov 	$bootstrap_page_table_high - KERNEL_OFFSET, %ebx // Pointer to page table
-	mov		$KERNEL_VIRT_ADDR, %edx						    // Map address
+	mov		$KERNEL_VIRT_ADDR, %edx						     // Map address
 	call 	_set_page_dir_entry
+	
+	// Recursively map last PDE entry to the page table itself
+	// By doing this, editing the page tables becomes easy
+	mov		$bootstrap_page_dir - KERNEL_OFFSET, %ebx       // Pointer to the page directory
+	mov		$PAGE_DIR_SELFREF_ADDR, %edx
+	call    _set_page_dir_entry
 
 	/********************************************
 	*            Set up page tables             *
@@ -120,8 +132,6 @@ _paging_init:
 	/********************************************
 	*               Enable paging               *
 	********************************************/
-	
-break_point:
 	
 	// Set CR3 (pointer to page directory)
 	// %eax already contains pointer to page directory
@@ -162,7 +172,7 @@ _set_page_dir_entry:
 	shr		$22, %edx	// NOTE: page directory handles first 12 bits
 						// of addres
 	shl		$2, %edx	// Each PDE takes up 4 bytes
-	
+
 	// Construct PDE in %ebx
 	or		$PDE_FLAG_PRESENT, %ebx // Set present flag
 	
@@ -223,12 +233,6 @@ _map_page:
 	shl		$2, %ecx	// Each PDE takes up 4 bytes
 	add 	%ecx, %eax  // %eax now contains address of correct PDE
 	
-	
-	// Check if page is present
-	//mov		(%eax), %ecx
-	//andl	$0x1, %ecx       // Check present bit in PDE
-	//jz 		_map_page_fail 	 // Fail if not present
-	
 	// Follow pointer to page table
 	mov 	(%eax), %eax
 	and		$0xFFFFF000, %eax // Ignore low bits (flags)
@@ -240,10 +244,8 @@ _map_page:
 	add		%edx, %eax	 	  // Caluclate address of PTE
 	
 	// Map page
-	or		$0x1, %ebx	      // Set present bit
-	mov 	%ebx, (%eax)	  // Set PTE
+	or		$PTE_FLAG_PRESENT, %ebx	 // Set present bit
+	mov 	%ebx, (%eax)	         // Set PTE
 	
-_map_page_fail:
-
 	popa
 	ret

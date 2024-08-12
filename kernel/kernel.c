@@ -2,6 +2,7 @@
 #include <stdint.h>
 
 #include "log.h"
+#include "mem/mem.h"
 #include "mem/physmem.h"
 #include "boot_info.h"
 #include "panic.h"
@@ -34,19 +35,16 @@ void alloc_test()
  * Main kernel entry point
  * Remember to initialize boot_info before calling this!
  */
-void kmain()
+void kmain(multiboot_info_t *mbd)
 {
-
-    serial_init(COM1);
-    serial_prtstr(COM1, "HELLORLD!");
-
     // Initialize kernel logging
     klog_init();
     klog("GOOS starting...\n");
-    klog("Hello from the higher half kernel!\n");
-    klog("Kernel load addr: %x, kernel end addr: %x\n", &_kernel_start, &_kernel_end);
 
-    // // Init physical page allocator
+    // Initialize memory management
+    mem_init(mbd);
+
+    // Init physical page allocator
     // physmem_init();
 
     // alloc_test();

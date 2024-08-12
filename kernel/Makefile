@@ -24,6 +24,8 @@ boot/multiboot.o \
 kernel.o \
 log.o \
 panic.o \
+mem/mem.o \
+mem/vmem.o \
 mem/physmem.o \
 drivers/serial.o \
 drivers/vga.o

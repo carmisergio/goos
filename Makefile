@@ -7,7 +7,10 @@ KERNEL_BIN:= $(KERNEL_DIR)/kernel.elf
 FLOPPY_DIR:= floppy
 FLOPPY_IMG:= $(FLOPPY_DIR)/goos.img
 
+SCRIPTS_DIR:= scripts
+
 QEMU:=qemu-system-i386
+GDB:=gdb
 
 .PHONY: all run debug gw_write clean
 
@@ -30,7 +33,7 @@ run: $(KERNEL_BIN)
 
 # Run compiled rernel with QEMU in debug mode
 debug: $(KERNEL_BIN)
-	$(QEMU) -kernel $(KERNEL_BIN) -m 16M -s -S 
+	$(SCRIPTS_DIR)/debug.sh $(KERNEL_BIN)
 	
 # Write generated floppy image with Greaseweazle
 gw_write: $(FLOPPY_IMG)
