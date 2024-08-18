@@ -8,17 +8,17 @@
 #define LOG_PORT COM1
 
 static void _klog_format(char *buf, const char *fmt, va_list args);
-static void _klog_format_int(char **buf, uint32_t val);
-static void _klog_format_hex(char **buf, uint32_t val);
+static void _klog_format_int(char **buf, uint64_t val);
+static void _klog_format_hex(char **buf, uint64_t val);
 static void _klog_format_str(char **buf, char *str);
 
 enum arg_len
 {
     LEN_DEFAULT,
     LEN_LONG,
-    LEN_LONG_LONG,
-    // LEN_SHORT,
-    // LEN_CHAR,
+    // LEN_LONG_LONG,
+    //  LEN_SHORT,
+    //  LEN_CHAR,
 };
 
 /* Public functions */
@@ -44,6 +44,24 @@ void klog(const char *fmt, ...)
     // Print to serial and VGA
     serial_prtstr(LOG_PORT, buf);
     vga_prtstr(buf);
+
+    // Clean up valist
+    va_end(args);
+}
+
+void kdbg(const char *fmt, ...)
+{
+    va_list args;
+    char buf[KLOG_MAX_LEN];
+
+    // Initialize valist for n arguments
+    va_start(args, fmt);
+
+    // Format
+    _klog_format(buf, fmt, args);
+
+    // Print to serial
+    serial_prtstr(LOG_PORT, buf);
 
     // Clean up valist
     va_end(args);
@@ -87,11 +105,11 @@ static void _klog_format(char *buf, const char *fmt, va_list args)
         case 'l':
             len = LEN_LONG;
             fmt++;
-            if (*fmt == 'l')
-            {
-                len = LEN_LONG_LONG;
-                fmt++;
-            }
+            // if (*fmt == 'l')
+            // {
+            //     len = LEN_LONG_LONG;
+            //     fmt++;
+            // }
             break;
             // case 'h':
             //     len = LEN_SHORT;
@@ -121,13 +139,10 @@ static void _klog_format(char *buf, const char *fmt, va_list args)
             switch (len)
             {
             case LEN_DEFAULT:
-                val = va_arg(args, int);
+                val = va_arg(args, uint32_t);
                 break;
             case LEN_LONG:
-                val = va_arg(args, long);
-                break;
-            case LEN_LONG_LONG:
-                val = va_arg(args, long long);
+                val = va_arg(args, uint64_t);
                 break;
             }
 
@@ -142,13 +157,10 @@ static void _klog_format(char *buf, const char *fmt, va_list args)
             switch (len)
             {
             case LEN_DEFAULT:
-                val = va_arg(args, int);
+                val = va_arg(args, uint32_t);
                 break;
             case LEN_LONG:
-                val = va_arg(args, long);
-                break;
-            case LEN_LONG_LONG:
-                val = va_arg(args, long long);
+                val = va_arg(args, uint64_t);
                 break;
             }
 
@@ -178,7 +190,7 @@ static void _klog_format(char *buf, const char *fmt, va_list args)
  *     int val: value to format
  * Returns: void
  */
-static void _klog_format_int(char **buf, uint32_t val)
+static void _klog_format_int(char **buf, uint64_t val)
 {
     int ndigits = 0;
 
@@ -224,7 +236,7 @@ static void _klog_format_int(char **buf, uint32_t val)
  *     int val: value to format
  * Returns: void
  */
-static void _klog_format_hex(char **buf, uint32_t val)
+static void _klog_format_hex(char **buf, uint64_t val)
 {
     int ndigits = 0;
 

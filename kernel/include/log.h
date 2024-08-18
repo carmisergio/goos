@@ -29,6 +29,18 @@ extern "C"
      */
     void klog(const char *fmt, ...);
 
+    /*
+     * Log to kernel log
+     * Uses printf-style formatting
+     * Prints only to debug serial output
+     *
+     * Params:
+     *    const char* fmt: format string
+     *    ...: format values
+     * Returns: void
+     */
+    void kdbg(const char *fmt, ...);
+
 #ifdef __cplusplus
 }
 #endif

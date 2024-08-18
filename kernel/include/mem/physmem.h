@@ -1,6 +1,8 @@
 #ifndef _PHYSMEM_H
 #define _PHYSMEM_H 1
 
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C"
 {

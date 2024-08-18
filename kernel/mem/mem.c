@@ -5,6 +5,7 @@
 #include "boot/multiboot.h"
 #include "mem/c_paging.h"
 #include "mem/vmem.h"
+#include "mem/physmem.h"
 
 void mem_init(multiboot_info_t *mbd)
 {
@@ -21,4 +22,7 @@ void mem_init(multiboot_info_t *mbd)
 
     // Read multiboot information struct
     mb_read_data(mbd);
+
+    // Initialize physical memory management
+    physmem_init();
 }

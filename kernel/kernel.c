@@ -16,18 +16,19 @@ void alloc_test()
 {
     void *mem;
     uint32_t tot = 0;
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 9999; i++)
     {
         mem = physmem_alloc();
         if (mem != PHYSMEM_NULL)
         {
             tot += 4;
-            klog("Allocated memory: %d KiB\n", tot);
+            klog("Allocated memory: %d KiB, %x\n", tot, mem);
         }
         else
         {
             panic("OUT_OF_MEMORY");
         }
+        // physmem_free(mem);
     }
 }
 

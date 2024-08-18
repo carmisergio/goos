@@ -1,19 +1,20 @@
+#include "mem/physmem.h"
+
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
-#include <stdbool.h>
 
 #include "log.h"
-#include "mem/physmem.h"
+#include "mem/vmem.h"
 #include "mem/c_paging.h"
 #include "boot_info.h"
 #include "boot/boot.h"
 #include "panic.h"
 
 // Bitmap global objects
-char *_bitmap;
-uint32_t _bitmap_pages;
-uint32_t _free_pages;
+char *physmem_bitmap;
+uint32_t physmem_bitmap_pages;
+uint32_t physmem_free_pages;
 
 #define MAX_SRMMAP_ENTRIES 4
 
@@ -43,16 +44,15 @@ typedef struct srmmap_entry srmmap_entry_t;
 #define PAGE_ALIGN_SIZE(s) ((s + MEM_PAGE_SIZE - 1) / MEM_PAGE_SIZE) * MEM_PAGE_SIZE
 
 // Private function prototypes
-static void _display_phys_mmap();
-static void _display_srmmap(srmmap_entry_t *srmmap, uint32_t srmmap_n);
-static uint32_t _calc_addr_space_size();
-static uint32_t _allocate_bitmap(uint32_t size, srmmap_entry_t *srmmap, uint32_t srmmap_n);
-static bool _is_physmem(uint32_t addr);
-static bool _is_softres(srmmap_entry_t *srmmap, uint32_t srmmap_n, uint32_t addr);
-static void _initialize_bitmap(srmmap_entry_t *srmmap, uint32_t srmmap_n);
-static inline bool _is_page_free(uint32_t page);
-static inline void _mark_page_free(uint32_t page);
-static inline void _mark_page_used(uint32_t page);
+static void debug_phys_mmap();
+static uint32_t calc_addr_space_size();
+static uint32_t allocate_bitmap(uint32_t size, srmmap_entry_t *srmmap, uint32_t srmmap_n);
+static bool is_physmem(uint32_t addr);
+static bool is_softres(srmmap_entry_t *srmmap, uint32_t srmmap_n, uint32_t addr);
+static void initialize_bitmap(srmmap_entry_t *srmmap, uint32_t srmmap_n);
+static inline bool is_page_free(uint32_t page);
+static inline void mark_page_free(uint32_t page);
+static inline void mark_page_used(uint32_t page);
 
 /* Public functions */
 
@@ -62,42 +62,46 @@ void physmem_init()
     srmmap_entry_t srmmap[MAX_SRMMAP_ENTRIES];
     uint32_t srmmap_n = 0;
 
-    uint32_t max_addr, bitmap_addr;
+    uint32_t max_addr, bitmap_paddr;
 
-    klog("Initializing frame allocator...\n");
-    _display_phys_mmap();
+    klog("Initializing physical memory manager...\n");
+    debug_phys_mmap();
 
     // Mark the kernel load area as software reserved
-    MAKE_SRMMAP_ENTRY((uint32_t)&_kernel_start,
+    MAKE_SRMMAP_ENTRY(KERNEL_PHYS_ADDR,
                       (uint32_t)&_kernel_end - (uint32_t)&_kernel_start);
 
     // Compute maximum physical address
-    max_addr = _calc_addr_space_size();
-    klog("Maximum physical address: %x\n", max_addr);
+    max_addr = calc_addr_space_size();
+    kdbg("Maximum physical address: %x\n", max_addr);
 
     // Compute number of pages haandled by the bitmap
-    _bitmap_pages = max_addr / MEM_PAGE_SIZE;
+    physmem_bitmap_pages = max_addr / MEM_PAGE_SIZE;
 
     // Compute size of bitmap in bytes
-    uint32_t bitmap_size = PAGE_ALIGN_SIZE(_bitmap_pages / 8); // 8 bits in a byte
-    klog("Bitmap size: %d bytes\n", bitmap_size);
+    uint32_t bitmap_size = PAGE_ALIGN_SIZE(physmem_bitmap_pages / 8); // 8 bits in a byte
+    kdbg("Bitmap size: %d bytes\n", bitmap_size);
 
     // Find place to put bitmap
-    bitmap_addr = _allocate_bitmap(bitmap_size, srmmap, srmmap_n);
-    _bitmap = (char *)bitmap_addr;
-    klog("Bitmap addr: %x\n", bitmap_addr);
+    bitmap_paddr = allocate_bitmap(bitmap_size, srmmap, srmmap_n);
+    kdbg("Bitmap physical addr: %x\n", bitmap_paddr);
 
     // Mark bitmap memory as software reserved
-    MAKE_SRMMAP_ENTRY(bitmap_addr, bitmap_size);
+    MAKE_SRMMAP_ENTRY(bitmap_paddr, bitmap_size);
 
-    _display_srmmap(srmmap, srmmap_n);
+    // Map bitmap into kVAS
+    physmem_bitmap = vmem_map_range_anyk_noalloc((void *)bitmap_paddr, bitmap_size);
+    if (physmem_bitmap == NULL)
+        panic("PHYSMEM_INIT_BITMAP_MAP_FAIL");
+
+    kdbg("Bitmap virtual addr: %x\n", physmem_bitmap);
 
     // Initialize bitmap from the physical memory and software reserved maps
-    memset(_bitmap, 0x00, _bitmap_pages / 8); // Set bitmap to all zeroes (all reserved)
-    _initialize_bitmap(srmmap, srmmap_n);
+    memset(physmem_bitmap, 0x00, physmem_bitmap_pages / 8); // Set bitmap to all zeroes (all reserved)
+    initialize_bitmap(srmmap, srmmap_n);
 
     klog("Free memory: %d KiB\n",
-         _free_pages * MEM_PAGE_SIZE / 1024); // 1024 bytes in a KiB
+         physmem_free_pages * MEM_PAGE_SIZE / 1024); // 1024 bytes in a KiB
 }
 
 /*
@@ -107,15 +111,15 @@ void physmem_init()
 void *physmem_alloc()
 {
     uint32_t cur_page;
-    for (uint32_t i = _bitmap_pages; i != 0; i--)
+    for (uint32_t i = physmem_bitmap_pages; i != 0; i--)
     {
         cur_page = i - 1; // Conversion used for iteration
 
         // Check if page is free
-        if (_is_page_free(cur_page))
+        if (is_page_free(cur_page))
         {
             // Mark page as allocated
-            _mark_page_used(cur_page);
+            mark_page_used(cur_page);
 
             return (void *)(cur_page * MEM_PAGE_SIZE);
         }
@@ -137,7 +141,7 @@ void physmem_free(void *addr)
         panic("PHYSMEM_DOUBLE_FREE");
 
     // Free page
-    _mark_page_free(page);
+    mark_page_free(page);
 }
 
 /**
@@ -148,7 +152,7 @@ bool physmem_is_free(void *addr)
 {
     uint32_t page = (uint32_t)addr / MEM_PAGE_SIZE;
 
-    return _is_page_free(page);
+    return is_page_free(page);
 }
 
 /* Internal functions */
@@ -156,33 +160,20 @@ bool physmem_is_free(void *addr)
 /*
  * Display available physical memory map
  */
-static void _display_phys_mmap()
+static void debug_phys_mmap()
 {
-    klog("Available physical memory:\n");
+    kdbg("Available physical memory:\n");
     for (size_t i = 0; i < boot_info.physmmap_n; i++)
     {
-        klog(" - Address: %x, size: %d pages\n",
+        kdbg(" - Address: %x, size: %d pages\n",
              boot_info.physmmap[i].addr, boot_info.physmmap[i].npages);
-    }
-}
-
-/*
- * Display software reserved memory map
- */
-static void _display_srmmap(srmmap_entry_t *srmmap, uint32_t srmmap_n)
-{
-    klog("Software reserved memory:\n");
-    for (uint32_t i = 0; i < srmmap_n; i++)
-    {
-        klog(" - Address: %x, size: %d (%x) pages\n",
-             srmmap[i].addr, srmmap[i].npages, srmmap[i].npages);
     }
 }
 
 /*
  * Compute length of address space until last area of physical memory
  */
-static uint32_t _calc_addr_space_size()
+static uint32_t calc_addr_space_size()
 {
     uint32_t max = 0;
 
@@ -202,8 +193,8 @@ static uint32_t _calc_addr_space_size()
  * Find space in physical memory to put the memory map
  * Panics on failure
  */
-static uint32_t _allocate_bitmap(uint32_t size, srmmap_entry_t *srmmap,
-                                 uint32_t srmmap_n)
+static uint32_t allocate_bitmap(uint32_t size, srmmap_entry_t *srmmap,
+                                uint32_t srmmap_n)
 {
     uint32_t cur_page;
     uint32_t cur_run = 0; // Current run of free pages
@@ -213,12 +204,12 @@ static uint32_t _allocate_bitmap(uint32_t size, srmmap_entry_t *srmmap,
     /* Iterate over all pages in the address space, check if its in physical
        memory, check if it's NOT software reserved, and find run of enough
        free pages */
-    for (uint32_t i = _bitmap_pages; i != 0; i--)
+    for (uint32_t i = physmem_bitmap_pages; i != 0; i--)
     {
         cur_page = i - 1; // Conversion used for iteration
 
-        if (_is_physmem(cur_page * MEM_PAGE_SIZE) &&
-            !_is_softres(srmmap, srmmap_n, cur_page * MEM_PAGE_SIZE))
+        if (is_physmem(cur_page * MEM_PAGE_SIZE) &&
+            !is_softres(srmmap, srmmap_n, cur_page * MEM_PAGE_SIZE))
         {
             // Increment number of bytes in run
             cur_run++;
@@ -241,7 +232,7 @@ static uint32_t _allocate_bitmap(uint32_t size, srmmap_entry_t *srmmap,
  * Returns true if the address is in physical memory,
  * according to the physical memory map
  */
-static bool _is_physmem(uint32_t addr)
+static bool is_physmem(uint32_t addr)
 {
     for (uint32_t i = 0; i < boot_info.physmmap_n; i++)
     {
@@ -258,7 +249,7 @@ static bool _is_physmem(uint32_t addr)
  * Returns true if the address is software reserved
  * according to the software reserved memory map
  */
-static bool _is_softres(srmmap_entry_t *srmmap, uint32_t srmmap_n, uint32_t addr)
+static bool is_softres(srmmap_entry_t *srmmap, uint32_t srmmap_n, uint32_t addr)
 {
     for (uint32_t i = 0; i < srmmap_n; i++)
     {
@@ -273,51 +264,51 @@ static bool _is_softres(srmmap_entry_t *srmmap, uint32_t srmmap_n, uint32_t addr
 /*
  * Construct bitmap
  */
-static void _initialize_bitmap(srmmap_entry_t *srmmap, uint32_t srmmap_n)
+static void initialize_bitmap(srmmap_entry_t *srmmap, uint32_t srmmap_n)
 {
-    _free_pages = 0;
+    physmem_free_pages = 0;
 
     // Set free pages as free
-    for (uint32_t page = 0; page < _bitmap_pages; page++)
+    for (uint32_t page = 0; page < physmem_bitmap_pages; page++)
     {
         // Both physmmap and srmmap store page aligned areas,
         // so we only need to check the starting address
-        if (_is_physmem(page * MEM_PAGE_SIZE) &&
-            !_is_softres(srmmap, srmmap_n, page * MEM_PAGE_SIZE))
+        if (is_physmem(page * MEM_PAGE_SIZE) &&
+            !is_softres(srmmap, srmmap_n, page * MEM_PAGE_SIZE))
         {
-            _mark_page_free(page);
+            mark_page_free(page);
         }
     }
 }
 
-static inline bool _is_page_free(uint32_t page)
+static inline bool is_page_free(uint32_t page)
 {
     // Check if page exists
-    if (page >= _bitmap_pages)
+    if (page >= physmem_bitmap_pages)
     {
         panic("PHYSMEM_INVALID_PAGE_INT");
     }
-    return (_bitmap[page / 8] & (1 << (page % 8))) != 0;
+    return (physmem_bitmap[page / 8] & (1 << (page % 8))) != 0;
 }
 
-static inline void _mark_page_free(uint32_t page)
+static inline void mark_page_free(uint32_t page)
 {
     // Check state of page in bitmap
-    if (_is_page_free(page))
+    if (is_page_free(page))
         panic("PHYSMEM_DOUBLE_FREE_INT");
 
     // Free page
-    _bitmap[page / 8] |= (1 << (page % 8));
-    _free_pages++; // Count free pages
+    physmem_bitmap[page / 8] |= (1 << (page % 8));
+    physmem_free_pages++; // Count free pages
 }
 
-static inline void _mark_page_used(uint32_t page)
+static inline void mark_page_used(uint32_t page)
 {
     // Check state of page in bitmap
-    if (!_is_page_free(page))
+    if (!is_page_free(page))
         panic("PHYSMEM_DOUBLE_ALLOC_INT");
 
     // Mark page as used
-    _bitmap[page / 8] &= ~(1 << (page % 8));
-    _free_pages++; // Count free pages
+    physmem_bitmap[page / 8] &= ~(1 << (page % 8));
+    physmem_free_pages++; // Count free pages
 }
