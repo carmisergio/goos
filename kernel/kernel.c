@@ -1,9 +1,11 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 
 #include "log.h"
 #include "mem/mem.h"
 #include "mem/physmem.h"
+#include "mem/vmem.h"
 #include "boot_info.h"
 #include "panic.h"
 #include "boot/multiboot_structs.h"
@@ -14,15 +16,16 @@ boot_info_t boot_info;
 
 void alloc_test()
 {
+    void *allocs[100];
     void *mem;
     uint32_t tot = 0;
-    for (int i = 0; i < 9999; i++)
+    for (int i = 0; i < 100; i++)
     {
-        mem = physmem_alloc();
-        if (mem != PHYSMEM_NULL)
+        allocs[i] = physmem_alloc();
+        if (allocs[i] != PHYSMEM_NULL)
         {
             tot += 4;
-            klog("Allocated memory: %d KiB, %x\n", tot, mem);
+            klog("Allocated memory: %d KiB, %x\n", tot, allocs[i]);
         }
         else
         {
@@ -30,6 +33,71 @@ void alloc_test()
         }
         // physmem_free(mem);
     }
+
+    for (int i = 0; i < 100; i++)
+    {
+        physmem_free(allocs[i]);
+        klog("Freed %x\n", allocs[i]);
+    }
+
+    // Contiguous allocation test
+    void *cont = physmem_alloc_n(4);
+    klog("Allocated memory: %x\n", cont);
+
+    for (int i = 0; i < 5; i++)
+    {
+        allocs[i] = physmem_alloc();
+        if (allocs[i] != PHYSMEM_NULL)
+        {
+            tot += 4;
+            klog("Allocated memory: %d KiB, %x\n", tot, allocs[i]);
+        }
+        else
+        {
+            panic("OUT_OF_MEMORY");
+        }
+        // physmem_free(mem);
+    }
+}
+
+void *alloc[30000];
+
+void alloc_test_2()
+{
+    // Get one page of physical memory
+    void *mem = physmem_alloc();
+    klog("Physical address: %x\n", mem);
+
+    void *virt;
+
+    for (int i = 0; i < 3000; i++)
+    {
+        // Allocate
+        alloc[i] = vmem_map_range_anyk(mem, MEM_PAGE_SIZE);
+    }
+
+    for (int i = 0; i < 3000; i++)
+    {
+        // Deallocate
+        vmem_unmap_range(alloc[i], MEM_PAGE_SIZE);
+    }
+
+    for (int i = 0; i < 3000; i++)
+    {
+        // Allocate
+        alloc[i] = vmem_map_range_anyk(mem, MEM_PAGE_SIZE);
+    }
+
+    for (int i = 0; i < 3000; i++)
+    {
+        // Deallocate
+        vmem_unmap_range(alloc[i], MEM_PAGE_SIZE);
+    }
+
+    mem = physmem_alloc();
+    klog("Physical address: %x\n", mem);
+
+    vmem_log_vaddrspc();
 }
 
 /*
@@ -45,8 +113,6 @@ void kmain(multiboot_info_t *mbd)
     // Initialize memory management
     mem_init(mbd);
 
-    // Init physical page allocator
-    // physmem_init();
-
     // alloc_test();
+    alloc_test_2();
 }

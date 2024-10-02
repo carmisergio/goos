@@ -10,7 +10,7 @@ extern "C"
 
     /*
      * Read multiboot data passed by the bootloader and store it in kernel-managed memory
-     * #### Arguments:
+     * #### Parameters:
      *   - multiboot_info_t *mbd: physical pointer to the multiboot info struct
      */
     void mb_read_data(multiboot_info_t *mbd);

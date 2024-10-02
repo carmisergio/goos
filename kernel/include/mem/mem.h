@@ -10,7 +10,7 @@ extern "C"
 
     /*
      * Initialize memory management
-     * #### Arguments:
+     * #### Parameters:
      *   - multiboot_info_t *mbd: physical pointer to the multiboot info struct
      */
     void mem_init(multiboot_info_t *mbd);

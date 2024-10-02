@@ -16,9 +16,11 @@
 
 // PDE flags
 #define PDE_FLAG_PRESENT 0x1
+#define PDE_ADDR_MASK 0xFFFFF000
 
 // PTE flags
 #define PTE_FLAG_PRESENT 0x1
+#define PTE_ADDR_MASK 0xFFFFF000
 
 // CR0 bits
 #define CR0_PE 0x1

@@ -1,6 +1,5 @@
 #include "mem/physmem.h"
 
-#include <stdint.h>
 #include <stddef.h>
 #include <string.h>
 
@@ -14,6 +13,9 @@
 // Bitmap global objects
 char *physmem_bitmap;
 uint32_t physmem_bitmap_pages;
+uint32_t physmem_first_free_page;
+
+// Accounting information
 uint32_t physmem_free_pages;
 
 #define MAX_SRMMAP_ENTRIES 4
@@ -104,14 +106,10 @@ void physmem_init()
          physmem_free_pages * MEM_PAGE_SIZE / 1024); // 1024 bytes in a KiB
 }
 
-/*
- * Allocate one page of physical memory
- * Returns PHYSMEM_NULL (0xFFFFFFFF) on failure
- */
 void *physmem_alloc()
 {
     uint32_t cur_page;
-    for (uint32_t i = physmem_bitmap_pages; i != 0; i--)
+    for (uint32_t i = physmem_first_free_page + 1; i != 0; i--)
     {
         cur_page = i - 1; // Conversion used for iteration
 
@@ -122,6 +120,40 @@ void *physmem_alloc()
             mark_page_used(cur_page);
 
             return (void *)(cur_page * MEM_PAGE_SIZE);
+        }
+    }
+
+    return (void *)PHYSMEM_NULL;
+}
+
+void *physmem_alloc_n(uint32_t n)
+{
+    uint32_t cur_page, count = 0;
+    for (uint32_t i = physmem_first_free_page + 1; i != 0; i--)
+    {
+        cur_page = i - 1; // Conversion used for iteration
+
+        // Check if page is free
+        if (is_page_free(cur_page))
+        {
+            // Count free page
+            count++;
+
+            // If enough free pages have been found
+            if (count >= n)
+            {
+                // Mark all pages as allocated
+                for (uint32_t page = cur_page; page < cur_page + n; page++)
+                    mark_page_used(page);
+
+                // Return address of first page
+                return (void *)(cur_page * MEM_PAGE_SIZE);
+            }
+        }
+        else
+        {
+            // Reset count
+            count = 0;
         }
     }
 
@@ -300,6 +332,10 @@ static inline void mark_page_free(uint32_t page)
     // Free page
     physmem_bitmap[page / 8] |= (1 << (page % 8));
     physmem_free_pages++; // Count free pages
+
+    // Set first free page
+    if (page > physmem_first_free_page)
+        physmem_first_free_page = page;
 }
 
 static inline void mark_page_used(uint32_t page)
@@ -311,4 +347,8 @@ static inline void mark_page_used(uint32_t page)
     // Mark page as used
     physmem_bitmap[page / 8] &= ~(1 << (page % 8));
     physmem_free_pages++; // Count free pages
+
+    // Set first free page
+    if (page == physmem_first_free_page)
+        physmem_first_free_page = page - 1;
 }

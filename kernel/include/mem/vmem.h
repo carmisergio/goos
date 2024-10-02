@@ -19,7 +19,7 @@ extern "C"
 
     /*
      * Sets the current address space's page directory location
-     * #### Arguments:
+     * #### Parameters:
      *   - pde_t *pd: page directory virtual address
      */
     void vmem_init(pde_t *pd);
@@ -27,7 +27,7 @@ extern "C"
     /*
      * Maps contiguous pages from a physical address to a virtual address,
      * allocating new page tables if needed
-     * #### Arguments:
+     * #### Parameters:
      *  - void *paddr: physical address of first page (page aligned)
      *  - void *vaddr: virtual address of first page (page aligned)
      *  - uint32_t n: number of pages
@@ -36,12 +36,12 @@ extern "C"
      * #### Notes:
      *    this function fails if page table allocation fails
      */
-    bool vmem_map(void *paddr, void *vaddr, uint32_t n);
+    // bool vmem_map(void *paddr, void *vaddr, uint32_t n);
 
     /*
      * Maps contiguous pages from a physical address to a virtual address,
      * but doesn't allocate new page tables
-     * #### Arguments:
+     * #### Parameters:
      *  - void *paddr: physical address of first page (page aligned)
      *  - void *vaddr: virtual address of first page (page aligned)
      *  - uint32_t n: number of pages
@@ -51,13 +51,13 @@ extern "C"
      *    this function fails if one of the required page table is not
      *    mapped
      */
-    bool vmem_map_noalloc(void *paddr, void *vaddr, uint32_t n);
+    // bool vmem_map_noalloc(void *paddr, void *vaddr, uint32_t n);
 
     /*
      * Maps contiguous pages from a physical to an available space
      * in the kernel address space, allocating new page tables
      * if needed
-     * #### Arguments:
+     * #### Parameters:
      *  - void *paddr: physical address of first page (page aligned)
      *  - uint32_t n: number of pages
      * #### Returns:
@@ -67,13 +67,13 @@ extern "C"
      *    this function fails if there isn't enough space in the kernel address
      *    space or if the allocation of a new page table fails
      */
-    void *vmem_map_anyk(void *paddr, uint32_t n);
+    // void *vmem_map_anyk(void *paddr, uint32_t n);
 
     /*
      * Maps contiguous pages from a physical to an available space
      * in the kernel address space, but doesn't allocate new page
      * tables
-     * #### Arguments:
+     * #### Parameters:
      *  - void *paddr: physical address of first page (page aligned)
      *  - uint32_t n: number of pages
      * #### Returns:
@@ -83,13 +83,13 @@ extern "C"
      *    this function fails if there isn't enough space in the kernel
      *    address space to which page tables are already assigned
      */
-    void *vmem_map_anyk_noalloc(void *paddr, uint32_t n);
+    // void *vmem_map_anyk_noalloc(void *paddr, uint32_t n);
 
     /*
      * Maps a physical address range into the kernel address space,
      * mapping all pages the range spans. Allocates new page tables
      * if necessary.
-     * #### Arguments:
+     * #### Parameters:
      *  - void *paddr: start physical address
      *  - uint32_t size: size of range
      * #### Returns:
@@ -105,7 +105,7 @@ extern "C"
      * Maps a physical address range into the kernel address space,
      * mapping all pages the range spans. Doen't allocate new page
      * tables.
-     * #### Arguments:
+     * #### Parameters:
      *  - void *paddr: start physical address
      *  - uint32_t size: size of range
      * #### Returns:
@@ -120,25 +120,25 @@ extern "C"
     /*
      * Unmaps pages from the current virtual address space,
      * and frees any page tables left empty
-     * #### Arguments:
+     * #### Parameters:
      *   - void *vaddr: first page virtual address (page aligned)
      *   - uint32_t n: number of pages
      */
-    void vmem_unmap(void *vaddr, uint32_t n);
+    // void vmem_unmap(void *vaddr, uint32_t n);
 
     /*
      * Unmaps pages from the current virtual address space,
      * but doesn't free any page tables that remain empty
-     * #### Arguments:
+     * #### Parameters:
      *   - void *vaddr: first page virtual address (page aligned)
      *   - uint32_t n: number of pages
      */
-    void vmem_unmap_nofree(void *vaddr, uint32_t n);
+    // void vmem_unmap_nofree(void *vaddr, uint32_t n);
 
     /*
      * Unmaps address range from the current VAS,
      * freeing page tables left empty
-     * #### Arguments:
+     * #### Parameters:
      *   - void *vaddr: start virtual address
      *   - uint32_t size: size of address range
      * #### Notes:
@@ -151,7 +151,7 @@ extern "C"
     /*
      * Unmaps address range from the current VAS,
      * but doesn't free any page tables that remain empty
-     * #### Arguments:
+     * #### Parameters:
      *   - void *vaddr: start virtual address
      *   - uint32_t size: size of address range
      * #### Notes:
@@ -163,7 +163,7 @@ extern "C"
 
     /*
      * Calculate number of pages from address range size
-     * #### Arguments:
+     * #### Parameters:
      *   - uint32_t size: address range size
      * #### Returns:
      *     uint32_t: number of pages
@@ -175,7 +175,7 @@ extern "C"
 
     /*
      * Page align address
-     * #### Arguments:
+     * #### Parameters:
      *   - void *addr: address
      * #### Returns:
      *     void *: page aligned address

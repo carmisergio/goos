@@ -35,7 +35,7 @@ void klog(const char *fmt, ...)
     va_list args;
     char buf[KLOG_MAX_LEN];
 
-    // Initialize valist for n arguments
+    // Initialize valist for n Parameters
     va_start(args, fmt);
 
     // Format
@@ -54,7 +54,7 @@ void kdbg(const char *fmt, ...)
     va_list args;
     char buf[KLOG_MAX_LEN];
 
-    // Initialize valist for n arguments
+    // Initialize valist for n Parameters
     va_start(args, fmt);
 
     // Format

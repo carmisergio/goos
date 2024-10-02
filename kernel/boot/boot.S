@@ -113,7 +113,7 @@ _paging_init:
 	mov		$0xA0000, %ebx	    // Physical address
 	mov		$0x60000, %ecx	    // Size
 	mov		$0xA0000, %edx	    // Virtual address
-	call    _map_address_range 
+	 call    _map_address_range 
 
 	// Kernel identity mapping
 	mov 	$_kernel_end, %ecx   	// Calculate size of kernel
