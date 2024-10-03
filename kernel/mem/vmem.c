@@ -13,11 +13,11 @@ static void vmem_int_set_ptes(void *paddr, void *vaddr, uint32_t n);
 static void vmem_int_set_pte(void *paddr, void *vaddr);
 static void vmem_int_clear_ptes(void *vaddr, uint32_t n);
 static void vmem_int_clear_pte(void *vaddr);
+static void *vmem_alloc_k_alreadymapped(uint32_t n);
 static inline size_t vmem_int_pte_index(void *addr);
 static inline size_t vmem_int_pde_index(void *addr);
-static void *vmem_int_find_free_pages_k(uint32_t n);
-static bool vmem_int_new_page_table_k();
-static uint32_t vmem_int_find_free_pde_k();
+static bool vmem_int_new_page_table(uint32_t n);
+// static uint32_t vmem_int_find_free_pde_k();
 static void vmem_int_set_pde(void *paddr, uint32_t pde_index);
 static void vmem_int_clear_pde(uint32_t pde_index);
 static void vmem_int_delete_unused_page_tables(uint32_t start, uint32_t n);
@@ -46,6 +46,36 @@ void vmem_init(pde_t *pagedir)
     cvas_pagetabs = (pte_t *)PAGE_DIR_SELFREF_ADDR;
 }
 
+void vmem_purge_pagetabs()
+{
+    vmem_int_delete_unused_page_tables(0, PDE_NUM);
+}
+
+bool vmem_map(void *paddr, void *vaddr, uint32_t n)
+{
+    // Iterate over all pages to map
+    for (uint32_t page = 0; page < n; page++)
+    {
+        void *page_vaddr = (char *)vaddr + page * MEM_PAGE_SIZE;
+        void *page_paddr = (char *)paddr + page * MEM_PAGE_SIZE;
+
+        // Check if the page table for this page table entry exists,
+        // otherwise create it
+        uint32_t pde = vmem_int_pde_index(page_vaddr);
+        if ((cvas_pagedir[pde] & PDE_FLAG_PRESENT) == 0)
+        {
+            // Allocate new page directory
+            if (!vmem_int_new_page_table(pde))
+                return false;
+        }
+
+        // Set corresponding PTE
+        vmem_int_set_pte(page_paddr, page_vaddr);
+    }
+
+    return true;
+}
+
 void *vmem_map_range_anyk(void *paddr, uint32_t size)
 {
     void *vaddr, *paddr_pa;
@@ -58,21 +88,15 @@ void *vmem_map_range_anyk(void *paddr, uint32_t size)
     n_pages = vmem_n_pages_pa(paddr, size);
 
     // Find free range to map
-    do
+    vaddr = vmem_palloc_k(n_pages);
+    if (vaddr == NULL)
     {
-        vaddr = vmem_int_find_free_pages_k(n_pages);
-
-        // If no free range is found, add new PDE and try again
-        if (vaddr == NULL)
-            // Add new PDE
-            if (!vmem_int_new_page_table_k())
-                // Couldn't allocate new page table
-                return NULL;
-
-    } while (vaddr == NULL);
+        kdbg("[VMEM] vmem_map_range_anyk(paddr=%x, size=%d): KVAS full\n", paddr, size);
+        return NULL;
+    }
 
     // Map pages
-    vmem_int_set_ptes(paddr_pa, vaddr, n_pages);
+    vmem_map(paddr_pa, vaddr, n_pages);
 
     // Return pointer to address of physical mapping,
     // which could be not page aligned
@@ -91,7 +115,7 @@ void *vmem_map_range_anyk_noalloc(void *paddr, uint32_t size)
     n_pages = vmem_n_pages_pa(paddr, size);
 
     // Find free range to map
-    vaddr = vmem_int_find_free_pages_k(n_pages);
+    vaddr = vmem_alloc_k_alreadymapped(n_pages);
 
     // If no free range is found, fail
     if (vaddr == NULL)
@@ -105,28 +129,107 @@ void *vmem_map_range_anyk_noalloc(void *paddr, uint32_t size)
     return (void *)((char *)vaddr + ((char *)paddr - (char *)paddr_pa));
 }
 
-void vmem_unmap_range(void *vaddr, uint32_t size)
+void vmem_unmap(void *vaddr, uint32_t n)
 {
-    // Clear respective PTEs
-    vmem_int_clear_ptes(vaddr, vmem_n_pages(size));
+    // Clear PTEs
+    vmem_int_clear_ptes(vaddr, n);
 
     // How many PDEs does the range span?
-    uint32_t pde_span =
-        (size + MEM_PAGE_SIZE * PTE_NUM - 1) / (MEM_PAGE_SIZE * PTE_NUM);
+    uint32_t pte_index = vmem_int_pte_index(vaddr);
+    uint32_t pde_index = vmem_int_pde_index(vaddr);
+    uint32_t pde_aligned_n = pte_index + n - (pde_index * PTE_NUM);
+    uint32_t pde_span = (pde_aligned_n + PTE_NUM - 1) / (PTE_NUM);
 
     // Remove empty Page Tables
     vmem_int_delete_unused_page_tables(vmem_int_pde_index(vaddr), pde_span);
 }
 
-void vmem_unmap_range_nofree(void *vaddr, uint32_t size)
+void vmem_unmap_range(void *vaddr, uint32_t size)
 {
-    // Clear respective PTEs
-    vmem_int_clear_ptes(vaddr, vmem_n_pages(size));
+    // Page align address and size
+    void *vaddr_pa = vmem_page_aligned(vaddr);
+
+    // Calculate number of pages to map
+    uint32_t n_pages = vmem_n_pages_pa(vaddr, size);
+
+    // Unmap pages
+    vmem_unmap(vaddr_pa, n_pages);
 }
 
-void vmem_purge_pagetabs()
+void vmem_unmap_range_nofree(void *vaddr, uint32_t size)
 {
-    vmem_int_delete_unused_page_tables(0, PDE_NUM);
+    // Page align address and size
+    void *vaddr_pa = vmem_page_aligned(vaddr);
+
+    // Calculate number of pages to map
+    uint32_t n_pages = vmem_n_pages_pa(vaddr, size);
+
+    // Clear respective PTEs
+    vmem_int_clear_ptes(vaddr_pa, n_pages);
+}
+
+void *vmem_palloc_k(uint32_t n)
+{
+    uint32_t pte_index;
+    uint32_t run = 0;
+    void *start_addr = 0;
+
+    // Iterate over all PDEs in the kernel VAS
+    // -1 to avoid the self referencing PDE
+    for (uint32_t pde = KERNEL_VAS_START / (MEM_PAGE_SIZE * PTE_NUM);
+         pde < PDE_NUM - 1; pde++)
+    {
+        // Check if PDE is present
+        if ((cvas_pagedir[pde] & PDE_FLAG_PRESENT) == 0)
+        {
+            // Remember address of first page in range
+            if (run == 0)
+                start_addr = (void *)(pde * PTE_NUM * MEM_PAGE_SIZE);
+
+            // If PDE is present, all its addresses are free
+            run += PTE_NUM;
+
+            // If enough free pages have been found in the range,
+            // return its start address
+            if (run >= n)
+                return start_addr;
+            continue;
+        }
+
+        // Iterate over all PTEs of this PDE
+        for (uint32_t pte = 0; pte < PTE_NUM; pte++)
+        {
+            // Offset PTE index by PDE index
+            pte_index = pde * PTE_NUM + pte;
+
+            // Check if PTE is free
+            if ((cvas_pagetabs[pte_index] & PTE_FLAG_PRESENT) != 0)
+            {
+                // Reset run and proceed to next PTE
+                run = 0;
+                continue;
+            }
+
+            // Remember address of first page in range
+            if (run == 0)
+                start_addr = (void *)(pte_index * MEM_PAGE_SIZE);
+
+            // Count this page in the run
+            run++;
+
+            // If enough free pages have been found in the range,
+            // return its start address
+            if (run >= n)
+                return start_addr;
+        }
+    }
+
+    // Handle the situation in which the last page of a free range is the
+    // last page of the address space
+    if (run >= n)
+        return start_addr;
+
+    return NULL;
 }
 
 void vmem_log_vaddrspc()
@@ -163,7 +266,87 @@ void vmem_log_vaddrspc()
     }
 }
 
+void *vmem_get_phys(void *vaddr)
+{
+    // Check if corresponding PDE exists
+    if ((cvas_pagedir[vmem_int_pde_index(vaddr)] & PDE_FLAG_PRESENT) == 0)
+        return PHYSMEM_NULL;
+
+    // Check if PTE is set
+    uint32_t pte_index = vmem_int_pte_index(vaddr);
+    if ((cvas_pagetabs[pte_index] & PTE_FLAG_PRESENT) == 0)
+        return PHYSMEM_NULL;
+
+    // Get address
+    return (void *)(cvas_pagetabs[pte_index] & PTE_ADDR_MASK);
+}
+
 /* Internal functions */
+
+/*
+ * Find range of at least n free pages in the page tables already mapped
+ * in the page directory for the KVAS
+ * #### Parameters:
+ *   - uint32_t n: number of free pages required
+ * #### Returns:
+ *   - void *: pointer to the first page of the range (page aligned),
+ *       null on failure
+ * #### Fails:
+ *     This function fails when no free range big enough is found
+ */
+static void *vmem_alloc_k_alreadymapped(uint32_t n)
+{
+    uint32_t pte_index;
+    uint32_t run = 0;
+    void *start_addr = 0;
+
+    // Iterate over all PDEs in the kernel VAS
+    // -1 to avoid the self referencing PDE
+    for (uint32_t pde = KERNEL_VAS_START / (MEM_PAGE_SIZE * PTE_NUM);
+         pde < PDE_NUM - 1; pde++)
+    {
+        // Check if PDE is present
+        if ((cvas_pagedir[pde] & PDE_FLAG_PRESENT) == 0)
+        {
+            run = 0;
+            continue;
+        }
+
+        // Iterate over all PTEs of this PDE
+        for (uint32_t pte = 0; pte < PTE_NUM; pte++)
+        {
+            // Offset PTE index by PDE index
+            pte_index = pde * PTE_NUM + pte;
+
+            // Check if PTE is free
+            if ((cvas_pagetabs[pte_index] & PTE_FLAG_PRESENT) != 0)
+            {
+                // Reset run and proceed to next PTE
+                run = 0;
+                continue;
+            }
+
+            // Remember address of first page in range
+            if (run == 0)
+                start_addr = (void *)(pte_index * MEM_PAGE_SIZE);
+
+            // Count this page in the run
+            run++;
+
+            // If enough free pages have been found in the range,
+            // return its start address
+            if (run >= n)
+                return start_addr;
+        }
+    }
+
+    // Handle the situation in which the last page of a free range is the
+    // last page of the address space
+    if (run >= n)
+        return start_addr;
+
+    return NULL;
+}
 
 /*
  * Create PTE for some contiguous pages
@@ -302,91 +485,23 @@ static inline size_t vmem_int_pde_index(void *addr)
 }
 
 /*
- * Find range of at least n free pages in the page tables already mapped
- * in the page directory for the KVAS
+ * Allocate a new Page Table and map it to the specified PDE
  * #### Parameters:
- *   - uint32_t n: number of free pages required
+ *   - uint32_t pde: PDE index to populate
  * #### Returns:
- *   - void *: pointer to the first page of the range (page aligned),
- *       null on failure
- * #### Fails:
- *     This function fails when no free range big enough is found
- */
-static void *vmem_int_find_free_pages_k(uint32_t n)
-{
-    uint32_t pte_index;
-    uint32_t run = 0;
-    void *start_addr = 0;
-
-    // Iterate over all PDEs in the kernel VAS
-    // -1 to avoid the self referencing PDE
-    for (uint32_t pde = KERNEL_VAS_START / (MEM_PAGE_SIZE * PTE_NUM);
-         pde < PDE_NUM - 1; pde++)
-    {
-        // Check if PDE is present
-        if ((cvas_pagedir[pde] & PDE_FLAG_PRESENT) == 0)
-        {
-            // Reset run and proceed to next PDE
-            run = 0;
-            continue;
-        }
-
-        // Iterate over all PTEs of this PDE
-        for (uint32_t pte = 0; pte < PTE_NUM; pte++)
-        {
-            // Offset PTE index by PDE index
-            pte_index = pde * PTE_NUM + pte;
-
-            // Check if PTE is free
-            if ((cvas_pagetabs[pte_index] & PTE_FLAG_PRESENT) != 0)
-            {
-                // Reset run and proceed to next PTE
-                run = 0;
-                continue;
-            }
-
-            // Remember address of first page in range
-            if (run == 0)
-                start_addr = (void *)(pte_index * MEM_PAGE_SIZE);
-
-            // Count this page in the run
-            run++;
-
-            // If enough free pages have been found in the range,
-            // return its start address
-            if (run >= n)
-                return start_addr;
-        }
-    }
-
-    // Handle the situation in which the last page of a free range is the
-    // last page of the address space
-    if (run >= n)
-        return start_addr;
-
-    return NULL;
-}
-
-/*
- * Allocate a new Page Directory Entry anywhere in the
- * Virtual Address Space
- * #### Returns:
- *   - void *: pointer to the first page of the range (page aligned),
- *       null on failure
+ *    bool: true if succesful
  * #### Fails:
  *     This function fails when there isn't a free entry in the Page Directory
  */
-static bool vmem_int_new_page_table_k()
+static bool vmem_int_new_page_table(uint32_t pde)
 {
-    // Find free slot in the Page Directory
-    uint32_t pde;
-    if ((pde = vmem_int_find_free_pde_k()) == 0)
-        return false;
-
     // Allocate new page of physical memory
     void *page;
     if ((page = physmem_alloc()) == PHYSMEM_NULL)
+    {
+        kdbg("[VMEM] vmem_int_new_page_table(pde=%d): physmem_alloc() failed\n", pde);
         return false;
+    }
 
     // Set PDE
     vmem_int_set_pde(page, pde);
@@ -406,20 +521,20 @@ static bool vmem_int_new_page_table_k()
  * #### Fails:
  *     This function fails when there isn't a free PDE in the current page directory
  */
-static uint32_t vmem_int_find_free_pde_k()
-{
-    // Iterate over all PDEs in the kernel VAS
-    for (uint32_t pde = KERNEL_VAS_START / (MEM_PAGE_SIZE * PTE_NUM);
-         pde < PDE_NUM - 1; pde++)
-    {
-        // Check if PDE is free
-        if ((cvas_pagedir[pde] & PDE_FLAG_PRESENT) == 0)
-            return pde;
-    }
+// static uint32_t vmem_int_find_free_pde_k()
+// {
+//     // Iterate over all PDEs in the kernel VAS
+//     for (uint32_t pde = KERNEL_VAS_START / (MEM_PAGE_SIZE * PTE_NUM);
+//          pde < PDE_NUM - 1; pde++)
+//     {
+//         // Check if PDE is free
+//         if ((cvas_pagedir[pde] & PDE_FLAG_PRESENT) == 0)
+//             return pde;
+//     }
 
-    // No free space found
-    return 0;
-}
+//     // No free space found
+//     return 0;
+// }
 
 /*
  * Create PDE for one Page Table

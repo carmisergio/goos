@@ -25,6 +25,11 @@ extern "C"
     void vmem_init(pde_t *pd);
 
     /*
+     * Unmaps and frees unused page tables
+     */
+    void vmem_purge_pagetabs();
+
+    /*
      * Maps contiguous pages from a physical address to a virtual address,
      * allocating new page tables if needed
      * #### Parameters:
@@ -36,7 +41,7 @@ extern "C"
      * #### Notes:
      *    this function fails if page table allocation fails
      */
-    // bool vmem_map(void *paddr, void *vaddr, uint32_t n);
+    bool vmem_map(void *paddr, void *vaddr, uint32_t n);
 
     /*
      * Maps contiguous pages from a physical address to a virtual address,
@@ -124,7 +129,7 @@ extern "C"
      *   - void *vaddr: first page virtual address (page aligned)
      *   - uint32_t n: number of pages
      */
-    // void vmem_unmap(void *vaddr, uint32_t n);
+    void vmem_unmap(void *vaddr, uint32_t n);
 
     /*
      * Unmaps pages from the current virtual address space,
@@ -162,9 +167,25 @@ extern "C"
     void vmem_unmap_range_nofree(void *vaddr, uint32_t size);
 
     /*
-     * Unmaps and frees unused page tables
+     * Find range of at least n free pages in the KVAS
+     * #### Parameters:
+     *   - uint32_t n: number of free pages required
+     * #### Returns:
+     *   - void *: pointer to the first page of the range (page aligned),
+     *       null on failure
+     * #### Fails:
+     *     This function fails when no free range big enough is found
      */
-    void vmem_purge_pagetabs();
+    void *vmem_palloc_k(uint32_t n);
+
+    /*
+     * Get physical mapping of a page
+     * #### Parameters:
+     *   - void* vaddr: virtual address (page aligned)
+     * #### Returns:
+     *     void* physical address, PHYSMEM_NULL if there is no mapping
+     */
+    void *vmem_get_phys(void *vaddr);
 
     /*
      * Calculate number of pages from address range size

@@ -75,6 +75,7 @@ void alloc_test_2()
     for (int i = 0; i < 3000; i++)
     {
         // Allocate
+        klog("%d\n", i);
         alloc[i] = vmem_map_range_anyk(mem, MEM_PAGE_SIZE);
     }
 
@@ -103,6 +104,21 @@ void alloc_test_2()
     vmem_log_vaddrspc();
 }
 
+void alloc_test_3()
+{
+    void *var = mem_palloc_k(1000);
+
+    klog("Allocated: %x\n", var);
+
+    // vmem_log_vaddrspc();
+
+    mem_pfree(var, 1000);
+
+    klog("Freed!");
+
+    // vmem_log_vaddrspc();
+}
+
 /*
  * Main kernel entry point
  * Remember to initialize boot_info before calling this!
@@ -122,6 +138,7 @@ void kmain(multiboot_info_t *mbd)
 
     // alloc_test();
     alloc_test_2();
+    alloc_test_3();
 }
 
 /**
