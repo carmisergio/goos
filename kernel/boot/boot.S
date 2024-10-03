@@ -55,7 +55,7 @@ _start:
 	
 	# Call global constructors
 	call 	_init
-
+	
 	# Transfer control to the kernel
 	push 	%ebx # Pass multiboot info struct pointer to kernel
 	call 	kmain
@@ -109,11 +109,11 @@ _paging_init:
 	*            Set up page tables             *
 	********************************************/
 	
-	// Identity map A0000-100000 (Hardware memory)
-	mov		$0xA0000, %ebx	    // Physical address
-	mov		$0x60000, %ecx	    // Size
-	mov		$0xA0000, %edx	    // Virtual address
-	 call    _map_address_range 
+	// Identity map 000000-100000 (Low memory for initial hardware access)
+	mov		$0x000000, %ebx	    // Physical address
+	mov		$0x100000, %ecx	    // Size
+	mov		$0x000000, %edx	    // Virtual address
+	call    _map_address_range 
 
 	// Kernel identity mapping
 	mov 	$_kernel_end, %ecx   	// Calculate size of kernel

@@ -39,6 +39,13 @@ extern "C"
     void vga_init(void);
 
     /*
+     * Initialize vga driver functions that require
+     * memory management to be set up
+     * Should be called only AFTER mem_init()
+     */
+    void vga_init_aftermem();
+
+    /*
      * Output character to VGA text console
      *
      * Params:

@@ -12,11 +12,14 @@ extern "C"
 
     /*
      * Initialize kernel logging subsystem
-     *
-     * Params: void
-     * Returns: void
      */
     void klog_init();
+
+    /*
+     * Initialize kernel logging subsystem features
+     * memory management
+     */
+    void klog_init_aftermem();
 
     /*
      * Log to kernel log

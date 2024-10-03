@@ -34,8 +34,11 @@ pte_t *cvas_pagetabs;
 
 void vmem_init(pde_t *pagedir)
 {
+    klog("[VMEM] Initializing...\n");
     // Set current address space page directory pointer
     cvas_pagedir = pagedir;
+
+    klog("Current VAS Page directory: %x\n", cvas_pagedir);
 
     // Set the self reference page table mapping pointer
     // This is where the virtual memory manager will find all the
@@ -46,14 +49,13 @@ void vmem_init(pde_t *pagedir)
 void *vmem_map_range_anyk(void *paddr, uint32_t size)
 {
     void *vaddr, *paddr_pa;
-    uint32_t size_pa, n_pages;
+    uint32_t n_pages;
 
     // Page align address and size
     paddr_pa = vmem_page_aligned(paddr);
-    size_pa = (uint32_t)paddr + size - (uint32_t)paddr_pa;
 
     // Calculate number of pages to map
-    n_pages = vmem_n_pages(size_pa);
+    n_pages = vmem_n_pages_pa(paddr, size);
 
     // Find free range to map
     do
@@ -74,20 +76,19 @@ void *vmem_map_range_anyk(void *paddr, uint32_t size)
 
     // Return pointer to address of physical mapping,
     // which could be not page aligned
-    return vaddr + (paddr - paddr_pa);
+    return (void *)((char *)vaddr + ((char *)paddr - (char *)paddr_pa));
 }
 
 void *vmem_map_range_anyk_noalloc(void *paddr, uint32_t size)
 {
     void *vaddr, *paddr_pa;
-    uint32_t size_pa, n_pages;
+    uint32_t n_pages;
 
     // Page align address and size
     paddr_pa = vmem_page_aligned(paddr);
-    size_pa = (uint32_t)paddr + size - (uint32_t)paddr_pa;
 
     // Calculate number of pages to map
-    n_pages = vmem_n_pages(size_pa);
+    n_pages = vmem_n_pages_pa(paddr, size);
 
     // Find free range to map
     vaddr = vmem_int_find_free_pages_k(n_pages);
@@ -101,7 +102,7 @@ void *vmem_map_range_anyk_noalloc(void *paddr, uint32_t size)
 
     // Return pointer to address of physical mapping,
     // which could be not page aligned
-    return vaddr + (paddr - paddr_pa);
+    return (void *)((char *)vaddr + ((char *)paddr - (char *)paddr_pa));
 }
 
 void vmem_unmap_range(void *vaddr, uint32_t size)
@@ -121,6 +122,11 @@ void vmem_unmap_range_nofree(void *vaddr, uint32_t size)
 {
     // Clear respective PTEs
     vmem_int_clear_ptes(vaddr, vmem_n_pages(size));
+}
+
+void vmem_purge_pagetabs()
+{
+    vmem_int_delete_unused_page_tables(0, PDE_NUM);
 }
 
 void vmem_log_vaddrspc()
@@ -386,7 +392,9 @@ static bool vmem_int_new_page_table_k()
     vmem_int_set_pde(page, pde);
 
     // Clear Page Table
-    memset((void *)(pde * PTE_NUM), 0x00, sizeof(pte_t) * PTE_NUM);
+    memset((void *)(cvas_pagetabs + pde * PTE_NUM), 0x00, sizeof(pte_t) * PTE_NUM);
+
+    kdbg("[VMEM] Allocated new page table (PDE=%d, phys addr=%x)\n", pde, page);
 
     return true;
 }
@@ -460,6 +468,11 @@ static void vmem_int_delete_unused_page_tables(uint32_t start, uint32_t n)
     // Iterate over PDEs
     for (uint32_t pde = start; pde < start + n; pde++)
     {
+        // Check if the PDE is present
+        if ((cvas_pagedir[pde] & PDE_FLAG_PRESENT) == 0)
+            continue;
+
+        // Check if the Page table is unused
         if (vmem_int_is_page_table_unused(pde))
         {
             // Get physical address of page table
@@ -468,6 +481,8 @@ static void vmem_int_delete_unused_page_tables(uint32_t start, uint32_t n)
 
             // Clear PDE
             vmem_int_clear_pde(pde);
+
+            kdbg("[VMEM] Freed page table (PDE=%d, phys addr=%x)\n", pde, phys_page);
         }
     }
 }

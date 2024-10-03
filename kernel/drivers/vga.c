@@ -1,9 +1,14 @@
 #include "sys/io.h"
+#include "mem/vmem.h"
 #include "drivers/vga.h"
+#include "panic.h"
 
 // VGA constants
 static const size_t VGA_CONSOLE_WIDTH = 80;
 static const size_t VGA_CONSOLE_HEIGHT = 25;
+static void *VGA_MEM_ADDR = (void *)0xB8000;
+
+// Pointer to screen buffer
 uint16_t *vga_buffer;
 
 // Current VGA driver state
@@ -21,8 +26,11 @@ void _vga_newline();
 /* Public functions */
 void vga_init()
 {
-    // Initialize terminal buffer
-    vga_buffer = (uint16_t *)0xB8000;
+    vga_buffer = (uint16_t *)VGA_MEM_ADDR;
+
+    // Check if mapping was succesful
+    if (vga_buffer == NULL)
+        panic("VGA_BUF_MAP_FAIL");
 
     // Set up state
     vga_row = 0;
@@ -32,6 +40,14 @@ void vga_init()
     // Clear screen
     _vga_disablecursor();
     vga_clearscreen();
+}
+
+void vga_init_aftermem()
+{
+    // Map VGA memory into KVAS
+    vga_buffer = (uint16_t *)vmem_map_range_anyk(
+        VGA_MEM_ADDR, VGA_CONSOLE_WIDTH * VGA_CONSOLE_HEIGHT * 2);
+    // NOTE: 2 bytes per character
 }
 
 void vga_putchar(char c)

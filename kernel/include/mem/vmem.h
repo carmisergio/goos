@@ -162,6 +162,11 @@ extern "C"
     void vmem_unmap_range_nofree(void *vaddr, uint32_t size);
 
     /*
+     * Unmaps and frees unused page tables
+     */
+    void vmem_purge_pagetabs();
+
+    /*
      * Calculate number of pages from address range size
      * #### Parameters:
      *   - uint32_t size: address range size
@@ -185,10 +190,27 @@ extern "C"
         return (void *)((((uint32_t)addr) / MEM_PAGE_SIZE) * MEM_PAGE_SIZE);
     }
 
+    /*
+     * Calculate number of pages spanned by a not necessarily
+     *  page aligned range
+     * #### Parameters:
+     *   - void* addr: address range start
+     *   - uint32_t size: size of the range
+     * #### Returns:
+     *     uint32_t: number of pages
+     */
+    static inline uint32_t vmem_n_pages_pa(void *addr, uint32_t size)
+    {
+        // Page align address and size
+        uint32_t paddr_pa = (uint32_t)vmem_page_aligned(addr);
+        uint32_t size_pa = (uint32_t)addr + size - (uint32_t)paddr_pa;
+
+        // Calculate number of pages
+        return vmem_n_pages(size_pa);
+    }
+
     // Log virtual address space mappings
     void vmem_log_vaddrspc();
-
-    // Switch address space
 
 #ifdef __cplusplus
 }

@@ -9,15 +9,18 @@
 #include "boot_info.h"
 #include "panic.h"
 #include "boot/multiboot_structs.h"
+#include "drivers/vga.h"
 #include "drivers/serial.h"
 
 // Boot information structure
 boot_info_t boot_info;
 
+// Function prototypes
+void remove_lowmem_mapping();
+
 void alloc_test()
 {
-    void *allocs[100];
-    void *mem;
+    void *allocs[1000];
     uint32_t tot = 0;
     for (int i = 0; i < 100; i++)
     {
@@ -42,15 +45,16 @@ void alloc_test()
 
     // Contiguous allocation test
     void *cont = physmem_alloc_n(4);
-    klog("Allocated memory: %x\n", cont);
+    klog("Allocated 4 pages of memory: %x\n", cont);
 
-    for (int i = 0; i < 5; i++)
+    tot = 0;
+    for (int i = 0; i < 10000; i++)
     {
-        allocs[i] = physmem_alloc();
-        if (allocs[i] != PHYSMEM_NULL)
+        void *mem = physmem_alloc_n(1);
+        if (mem != PHYSMEM_NULL)
         {
             tot += 4;
-            klog("Allocated memory: %d KiB, %x\n", tot, allocs[i]);
+            klog("Allocated memory: %d KiB, %x\n", tot, mem);
         }
         else
         {
@@ -67,8 +71,6 @@ void alloc_test_2()
     // Get one page of physical memory
     void *mem = physmem_alloc();
     klog("Physical address: %x\n", mem);
-
-    void *virt;
 
     for (int i = 0; i < 3000; i++)
     {
@@ -87,6 +89,7 @@ void alloc_test_2()
         // Allocate
         alloc[i] = vmem_map_range_anyk(mem, MEM_PAGE_SIZE);
     }
+    vmem_log_vaddrspc();
 
     for (int i = 0; i < 3000; i++)
     {
@@ -113,6 +116,18 @@ void kmain(multiboot_info_t *mbd)
     // Initialize memory management
     mem_init(mbd);
 
+    // After mem_init() cleanup
+    vga_init_aftermem();
+    remove_lowmem_mapping();
+
     // alloc_test();
     alloc_test_2();
+}
+
+/**
+ * Remove Low memory identity mapping from the VAS
+ */
+void remove_lowmem_mapping()
+{
+    vmem_unmap_range((void *)0, 0x100000);
 }

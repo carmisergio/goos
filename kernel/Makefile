@@ -3,7 +3,7 @@ KERNEL_BIN:=kernel.elf
 CC:=i386-elf-gcc
 
 # Flag defaults
-CFLAGS?=-O2 -g
+CFLAGS?=-O0 -g -Wpedantic
 LDFLAGS?=
 LIBS?=
 

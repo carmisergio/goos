@@ -25,4 +25,7 @@ void mem_init(multiboot_info_t *mbd)
 
     // Initialize physical memory management
     physmem_init();
+
+    // Free unused page tables used during boot
+    vmem_purge_pagetabs();
 }

@@ -66,7 +66,7 @@ void physmem_init()
 
     uint32_t max_addr, bitmap_paddr;
 
-    klog("Initializing physical memory manager...\n");
+    klog("[PHYSMEM] Initializing...\n");
     debug_phys_mmap();
 
     // Mark the kernel load area as software reserved
@@ -75,18 +75,18 @@ void physmem_init()
 
     // Compute maximum physical address
     max_addr = calc_addr_space_size();
-    kdbg("Maximum physical address: %x\n", max_addr);
+    klog("Maximum physical address: %x\n", max_addr);
 
     // Compute number of pages haandled by the bitmap
     physmem_bitmap_pages = max_addr / MEM_PAGE_SIZE;
 
     // Compute size of bitmap in bytes
     uint32_t bitmap_size = PAGE_ALIGN_SIZE(physmem_bitmap_pages / 8); // 8 bits in a byte
-    kdbg("Bitmap size: %d bytes\n", bitmap_size);
+    klog("Bitmap size: %d bytes\n", bitmap_size);
 
     // Find place to put bitmap
     bitmap_paddr = allocate_bitmap(bitmap_size, srmmap, srmmap_n);
-    kdbg("Bitmap physical addr: %x\n", bitmap_paddr);
+    klog("Bitmap physical addr: %x\n", bitmap_paddr);
 
     // Mark bitmap memory as software reserved
     MAKE_SRMMAP_ENTRY(bitmap_paddr, bitmap_size);
@@ -96,7 +96,7 @@ void physmem_init()
     if (physmem_bitmap == NULL)
         panic("PHYSMEM_INIT_BITMAP_MAP_FAIL");
 
-    kdbg("Bitmap virtual addr: %x\n", physmem_bitmap);
+    klog("Bitmap virtual addr: %x\n", physmem_bitmap);
 
     // Initialize bitmap from the physical memory and software reserved maps
     memset(physmem_bitmap, 0x00, physmem_bitmap_pages / 8); // Set bitmap to all zeroes (all reserved)
@@ -194,10 +194,10 @@ bool physmem_is_free(void *addr)
  */
 static void debug_phys_mmap()
 {
-    kdbg("Available physical memory:\n");
+    klog("Available physical memory:\n");
     for (size_t i = 0; i < boot_info.physmmap_n; i++)
     {
-        kdbg(" - Address: %x, size: %d pages\n",
+        klog(" - Address: %x, size: %d pages\n",
              boot_info.physmmap[i].addr, boot_info.physmmap[i].npages);
     }
 }
