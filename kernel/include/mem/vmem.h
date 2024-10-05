@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "mem/c_paging.h"
+#include "mem/const.h"
 
 #ifdef __cplusplus
 extern "C"

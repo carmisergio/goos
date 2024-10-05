@@ -1,4 +1,4 @@
-#include "mem/c_paging.h"
+#include "mem/const.h"
 
 # Declare constants for the multiboot header.
 .set ALIGN,    1<<0             # align loaded modules on page boundaries
@@ -40,6 +40,9 @@ bootstrap_page_table_high:
 .global _start
 .type _start, @function
 _start:
+	# Disable interrupts
+	cli
+
 	# Set up bootstrap stack (at physical address for now)
 	movl 	$stack_top - KERNEL_OFFSET, %esp
 	

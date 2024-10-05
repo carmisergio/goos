@@ -12,6 +12,8 @@
 #include "drivers/vga.h"
 #include "drivers/serial.h"
 
+#include "mem/gdt.h"
+
 // Boot information structure
 boot_info_t boot_info;
 
@@ -116,6 +118,23 @@ void alloc_test_3()
 
     klog("Freed!");
 
+    uint32_t tot = 0;
+
+    for (int i = 0; i < 10000; i++)
+    {
+        void *mem = mem_palloc_k(1);
+        if (mem != PHYSMEM_NULL)
+        {
+            tot += 4;
+            klog("Allocated memory: %d KiB, %x\n", tot, mem);
+        }
+        else
+        {
+            panic("OUT_OF_MEMORY");
+        }
+        // physmem_free(mem);
+    }
+
     // vmem_log_vaddrspc();
 }
 
@@ -132,19 +151,9 @@ void kmain(multiboot_info_t *mbd)
     // Initialize memory management
     mem_init(mbd);
 
-    // After mem_init() cleanup
-    vga_init_aftermem();
-    remove_lowmem_mapping();
-
     // alloc_test();
-    alloc_test_2();
-    alloc_test_3();
-}
-
-/**
- * Remove Low memory identity mapping from the VAS
- */
-void remove_lowmem_mapping()
-{
-    vmem_unmap_range((void *)0, 0x100000);
+    // alloc_test_2();
+    // alloc_test_3();
+    //
+    klog("BOOTED!\n");
 }

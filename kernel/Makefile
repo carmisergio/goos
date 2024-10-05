@@ -27,6 +27,8 @@ panic.o \
 mem/mem.o \
 mem/vmem.o \
 mem/physmem.o \
+mem/gdt.o \
+mem/gdt_init.o \
 drivers/serial.o \
 drivers/vga.o
 

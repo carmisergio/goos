@@ -1,5 +1,5 @@
-#ifndef _MEM_C_PAGING_H
-#define _MEM_C_PAGING_H 1
+#ifndef _MEM_CONST_H
+#define _MEM_CONST_H 1
 
 // Addresses
 #define KERNEL_VIRT_ADDR 0xC0100000 // Kernel virtual address when paging is enabled (must be page aligned)
@@ -25,5 +25,11 @@
 // CR0 bits
 #define CR0_PE 0x1
 #define CR0_PG 0x80000000
+
+// GDT segment offsets
+#define GDT_SEGMENT_KCODE 0x0008
+#define GDT_SEGMENT_KDATA 0x0010
+#define GDT_SEGMENT_UCODE 0x0018
+#define GDT_SEGMENT_UDATA 0x0020
 
 #endif

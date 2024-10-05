@@ -1,6 +1,6 @@
 // This file will be processed by the C preprocessor before being
 // used for linking
-#include "mem/c_paging.h"
+#include "mem/const.h"
 
 ENTRY(_start)
 

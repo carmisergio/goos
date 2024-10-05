@@ -5,7 +5,7 @@
 
 #include "log.h"
 #include "panic.h"
-#include "mem/c_paging.h"
+#include "mem/const.h"
 #include "mem/physmem.h"
 
 // Internal function prototypes

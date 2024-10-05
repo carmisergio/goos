@@ -7,7 +7,7 @@
 #include "log.h"
 #include "boot/multiboot_structs.h"
 #include "boot_info.h"
-#include "mem/c_paging.h"
+#include "mem/const.h"
 #include "mem/vmem.h"
 #include "panic.h"
 
