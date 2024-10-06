@@ -22,6 +22,7 @@ static void vmem_int_set_pde(void *paddr, uint32_t pde_index);
 static void vmem_int_clear_pde(uint32_t pde_index);
 static void vmem_int_delete_unused_page_tables(uint32_t start, uint32_t n);
 static bool vmem_int_is_page_table_unused(uint32_t pde);
+static inline void vmem_int_flush_tlb();
 
 // Pointer to the virtual address of the current address space's
 // page directory
@@ -600,6 +601,8 @@ static void vmem_int_delete_unused_page_tables(uint32_t start, uint32_t n)
             kdbg("[VMEM] Freed page table (PDE=%d, phys addr=%x)\n", pde, phys_page);
         }
     }
+
+    vmem_int_flush_tlb();
 }
 
 /*
@@ -620,4 +623,17 @@ static bool vmem_int_is_page_table_unused(uint32_t pde)
     }
 
     return true;
+}
+
+/**
+ * Flush TLBs
+ */
+static inline void vmem_int_flush_tlb()
+{
+    uint32_t tmp;
+
+    // Flush TLB by writing to the CR3 register
+    asm(
+        "mov %%cr3, %0\n"
+        "mov %0, %cr3\n" : [temp] "=r"(tmp) :);
 }

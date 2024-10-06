@@ -108,32 +108,63 @@ void alloc_test_2()
 
 void alloc_test_3()
 {
-    void *var = mem_palloc_k(1000);
-
-    klog("Allocated: %x\n", var);
-
-    // vmem_log_vaddrspc();
-
-    mem_pfree(var, 1000);
-
-    klog("Freed!");
-
-    uint32_t tot = 0;
-
-    for (int i = 0; i < 10000; i++)
+    for (int i = 0; i < 1000; i++)
     {
-        void *mem = mem_palloc_k(1);
-        if (mem != PHYSMEM_NULL)
-        {
-            tot += 4;
-            klog("Allocated memory: %d KiB, %x\n", tot, mem);
-        }
+
+        klog("Allocating 1 page... ");
+        void *addr1 = mem_palloc_k(1);
+        if (addr1 != MEM_FAIL)
+            klog("SUCCESS! address = %x\n", addr1);
         else
-        {
-            panic("OUT_OF_MEMORY");
-        }
-        // physmem_free(mem);
+            klog("FAILURE!\n");
+
+        klog("Allocating 1000 pages... ");
+        void *addr2 = mem_palloc_k(1000);
+        if (addr2 != MEM_FAIL)
+            klog("SUCCESS! address = %x\n", addr2);
+        else
+            klog("FAILURE!\n");
+
+        klog("Allocating 10000 pages... ");
+        void *addr3 = mem_palloc_k(10000);
+        if (addr3 != MEM_FAIL)
+            klog("SUCCESS! address = %x\n", addr3);
+        else
+            klog("FAILURE!\n");
+
+        klog("Allocating 1000 pages... ");
+        void *addr4 = mem_palloc_k(1000);
+        if (addr2 != MEM_FAIL)
+            klog("SUCCESS! address = %x\n", addr4);
+        else
+            klog("FAILURE!\n");
+
+        if (addr1 != MEM_FAIL)
+            mem_pfree(addr1, 1);
+        if (addr2 != MEM_FAIL)
+            mem_pfree(addr2, 1000);
+        if (addr3 != MEM_FAIL)
+            mem_pfree(addr3, 10000);
+        if (addr4 != MEM_FAIL)
+            mem_pfree(addr4, 1000);
     }
+
+    // uint32_t tot = 0;
+
+    // for (int i = 0; i < 10000; i++)
+    // {
+    //     void *mem = mem_palloc_k(1);
+    //     if (mem != PHYSMEM_NULL)
+    //     {
+    //         tot += 4;
+    //         // klog("Allocated memory: %d KiB, %x\n", tot, mem);
+    //     }
+    //     else
+    //     {
+    //         panic("OUT_OF_MEMORY");
+    //     }
+    //     // physmem_free(mem);
+    // }
 
     // vmem_log_vaddrspc();
 }
@@ -153,7 +184,8 @@ void kmain(multiboot_info_t *mbd)
 
     // alloc_test();
     // alloc_test_2();
-    // alloc_test_3();
     //
     klog("BOOTED!\n");
+
+    alloc_test_3();
 }

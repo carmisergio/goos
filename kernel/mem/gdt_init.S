@@ -1,5 +1,6 @@
 #include "mem/const.h"
 
+.section .text
 .global load_gdt
     
 /*
@@ -8,7 +9,7 @@
  * Sets the GDTR register using the LGDTR instruction and flushes
  * all segment registers
  * #### Parameters:
- *   - void *desc: pointer to the GDT descriptor
+ *   - void *gdt_desc: pointer to the GDT descriptor
  */
 load_gdt:
     push    %ebp

@@ -31,5 +31,9 @@
 #define GDT_SEGMENT_KDATA 0x0010
 #define GDT_SEGMENT_UCODE 0x0018
 #define GDT_SEGMENT_UDATA 0x0020
+#define GDT_SEGMENT_TSS 0x0028
+
+// Interrupt stack size
+#define INTERRUPT_STACK_PAGES 1
 
 #endif
