@@ -7,6 +7,7 @@
 #include "mem/const.h"
 #include "mem/mem.h"
 #include "panic.h"
+#include "log.h"
 
 // GDT access byte flags
 #define GDT_ACCESSED 0x1
@@ -37,7 +38,7 @@ struct __attribute__((packed)) gdt_entry
 typedef struct gdt_entry gdt_entry_t;
 
 // Representatino of a Task State Segment
-typedef volatile struct tss_struct
+typedef struct
 {
     uint16_t link;
     uint16_t _link_h;
@@ -196,6 +197,8 @@ void set_up_tss()
     tss.ss0 = GDT_SEGMENT_KDATA;
     tss.esp0 = (uint32_t)mem_palloc_k(INTERRUPT_STACK_PAGES);
     tss.iomap = sizeof(tss_struct_t);
+
+    kdbg("Interrupt stack: %x\n", tss.esp0);
 
     // Compute limit
     uint32_t limit = (uint32_t)&tss + sizeof(tss_struct_t);

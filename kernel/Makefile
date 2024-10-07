@@ -3,7 +3,7 @@ KERNEL_BIN:=kernel.elf
 CC:=i386-elf-gcc
 
 # Flag defaults
-CFLAGS?=-O2 -g -Wpedantic
+CFLAGS?=-O0 -g -Wpedantic
 LDFLAGS?=
 LIBS?=
 
@@ -28,7 +28,11 @@ mem/mem.o \
 mem/vmem.o \
 mem/physmem.o \
 mem/gdt.o \
-mem/gdt_init.o \
+mem/load_gdt.o \
+int/interrupts.o \
+int/idt.o \
+int/vectors.o \
+int/load_idt.o \
 drivers/serial.o \
 drivers/vga.o
 

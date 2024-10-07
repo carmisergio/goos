@@ -11,8 +11,7 @@
 #include "boot/multiboot_structs.h"
 #include "drivers/vga.h"
 #include "drivers/serial.h"
-
-#include "mem/gdt.h"
+#include "int/interrupts.h"
 
 // Boot information structure
 boot_info_t boot_info;
@@ -182,10 +181,17 @@ void kmain(multiboot_info_t *mbd)
     // Initialize memory management
     mem_init(mbd);
 
+    // Initialize interrupts
+    interrupts_init();
+
     // alloc_test();
     // alloc_test_2();
     //
     klog("BOOTED!\n");
+
+    // *(int *)0x0100 = 10;
+
+    // asm("int $0");
 
     alloc_test_3();
 }

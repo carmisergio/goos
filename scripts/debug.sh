@@ -6,7 +6,7 @@
 KERNEL_BIN=$1
 
 # Start QEMU
-qemu-system-i386 -kernel $KERNEL_BIN -m 2M -s -S & pid_qemu=($!)
+qemu-system-i386 -kernel $KERNEL_BIN -m 16M -s -S & pid_qemu=($!)
 
 # Start GDB
 #alacritty --working-directory $PWD -e gdb -ex 'target remote localhost:1234' -q $KERNEL_BIN & pid_gdb=($!)
