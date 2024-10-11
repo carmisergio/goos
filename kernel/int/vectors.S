@@ -15,8 +15,32 @@
         jmp int_vector_common
 .endm
 
+// C interrupt handler
+.extern interrupt_handler
+
 // Common between all vectors
 int_vector_common:
+
+    // Save registers
+    push    %eax
+    push    %ebx
+    push    %ecx
+    push    %edx
+    push    %esi
+    push    %edi
+
+    // Call C interrupt handler
+    push    %esp
+    call    interrupt_handler
+    add     $4, %esp
+    
+    // Restore registers
+    pop     %edi
+    pop     %esi
+    pop     %edx
+    pop     %ecx
+    pop     %ebx
+    pop     %eax
     
     add     $8, %esp
     iret
@@ -54,4 +78,20 @@ ISR_VECT_NOERR 28
 ISR_VECT_NOERR 29
 ISR_VECT_NOERR 30
 ISR_VECT_NOERR 31
+ISR_VECT_NOERR 32
+ISR_VECT_NOERR 33
+ISR_VECT_NOERR 34
+ISR_VECT_NOERR 35
+ISR_VECT_NOERR 36
+ISR_VECT_NOERR 37
+ISR_VECT_NOERR 38
+ISR_VECT_NOERR 39
+ISR_VECT_NOERR 40
+ISR_VECT_NOERR 41
+ISR_VECT_NOERR 42
+ISR_VECT_NOERR 43
+ISR_VECT_NOERR 44
+ISR_VECT_NOERR 45
+ISR_VECT_NOERR 46
+ISR_VECT_NOERR 47
     

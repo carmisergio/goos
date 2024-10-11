@@ -33,6 +33,7 @@ int/interrupts.o \
 int/idt.o \
 int/vectors.o \
 int/load_idt.o \
+int/pic.o \
 drivers/serial.o \
 drivers/vga.o
 

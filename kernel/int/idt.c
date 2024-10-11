@@ -51,6 +51,21 @@ extern void int_vector_29();
 extern void int_vector_30();
 extern void int_vector_31();
 extern void int_vector_32();
+extern void int_vector_33();
+extern void int_vector_34();
+extern void int_vector_35();
+extern void int_vector_36();
+extern void int_vector_37();
+extern void int_vector_38();
+extern void int_vector_39();
+extern void int_vector_40();
+extern void int_vector_41();
+extern void int_vector_42();
+extern void int_vector_43();
+extern void int_vector_44();
+extern void int_vector_45();
+extern void int_vector_46();
+extern void int_vector_47();
 
 // Load IDT with LIDT instruction
 // Assembly function defined in load_idt.S
@@ -125,6 +140,22 @@ void set_up_idt()
     idt_int_set_entry(29, int_vector_29);
     idt_int_set_entry(30, int_vector_30);
     idt_int_set_entry(31, int_vector_31);
+    idt_int_set_entry(32, int_vector_32);
+    idt_int_set_entry(33, int_vector_33);
+    idt_int_set_entry(34, int_vector_34);
+    idt_int_set_entry(35, int_vector_35);
+    idt_int_set_entry(36, int_vector_36);
+    idt_int_set_entry(37, int_vector_37);
+    idt_int_set_entry(38, int_vector_38);
+    idt_int_set_entry(39, int_vector_39);
+    idt_int_set_entry(40, int_vector_40);
+    idt_int_set_entry(41, int_vector_41);
+    idt_int_set_entry(42, int_vector_42);
+    idt_int_set_entry(43, int_vector_43);
+    idt_int_set_entry(44, int_vector_44);
+    idt_int_set_entry(45, int_vector_45);
+    idt_int_set_entry(46, int_vector_46);
+    idt_int_set_entry(47, int_vector_47);
 
     // Construct IDT pointer
     idt_pointer_t idt_pointer = {.base = (uint32_t)&idt, .limit = sizeof(idt)};

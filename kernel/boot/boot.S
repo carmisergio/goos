@@ -18,9 +18,11 @@
 # Kernel stack
 .section .bss
 .align 16
-stack_bottom:
+.global kernel_stack_top
+.type kernel_stack_top, @object
+kernel_stack_bottom:
  	.skip 16385 # 16 KiB
-stack_top:
+kernel_stack_top:
 	
 # Bootstrap page tables
 .section .bss
@@ -44,7 +46,7 @@ _start:
 	cli
 
 	# Set up bootstrap stack (at physical address for now)
-	movl 	$stack_top - KERNEL_OFFSET, %esp
+	movl 	$kernel_stack_top - KERNEL_OFFSET, %esp
 	
 	// Check multiboot bootloader magic number
 	cmp     $BOOTLOADER_MAGIC, %eax
@@ -54,7 +56,7 @@ _start:
 	call 	_paging_init
 	
 	// Update stack
-	movl 	$stack_top, %esp
+	movl 	$kernel_stack_top, %esp
 	
 	# Call global constructors
 	call 	_init

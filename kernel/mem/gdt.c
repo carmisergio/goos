@@ -8,6 +8,7 @@
 #include "mem/mem.h"
 #include "panic.h"
 #include "log.h"
+#include "boot/boot.h"
 
 // GDT access byte flags
 #define GDT_ACCESSED 0x1
@@ -195,7 +196,8 @@ void set_up_tss()
     // Allocate interrupt stack
     memset((void *)&tss, 0x0, sizeof(tss_struct_t));
     tss.ss0 = GDT_SEGMENT_KDATA;
-    tss.esp0 = (uint32_t)mem_palloc_k(INTERRUPT_STACK_PAGES);
+    // tss.esp0 = (uint32_t)mem_palloc_k(INTERRUPT_STACK_PAGES);
+    tss.esp0 = (uint32_t)&kernel_stack_top;
     tss.iomap = sizeof(tss_struct_t);
 
     kdbg("Interrupt stack: %x\n", tss.esp0);

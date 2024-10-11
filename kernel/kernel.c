@@ -191,7 +191,16 @@ void kmain(multiboot_info_t *mbd)
 
     // *(int *)0x0100 = 10;
 
-    // asm("int $0");
+    // asm("int $1");
 
-    alloc_test_3();
+    // alloc_test_3();
+
+    // alloc_test_2();
+
+    // klog("Test finished\n");
+
+    while (true)
+        ;
+
+    *(int *)0x0100 = 10;
 }

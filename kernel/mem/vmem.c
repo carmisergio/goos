@@ -92,7 +92,7 @@ void *vmem_map_range_anyk(void *paddr, uint32_t size)
     vaddr = vmem_palloc_k(n_pages);
     if (vaddr == NULL)
     {
-        kdbg("[VMEM] vmem_map_range_anyk(paddr=%x, size=%d): KVAS full\n", paddr, size);
+        // kdbg("[VMEM] vmem_map_range_anyk(paddr=%x, size=%d): KVAS full\n", paddr, size);
         return NULL;
     }
 
@@ -500,7 +500,7 @@ static bool vmem_int_new_page_table(uint32_t pde)
     void *page;
     if ((page = physmem_alloc()) == PHYSMEM_NULL)
     {
-        kdbg("[VMEM] vmem_int_new_page_table(pde=%d): physmem_alloc() failed\n", pde);
+        // kdbg("[VMEM] vmem_int_new_page_table(pde=%d): physmem_alloc() failed\n", pde);
         return false;
     }
 
@@ -510,7 +510,7 @@ static bool vmem_int_new_page_table(uint32_t pde)
     // Clear Page Table
     memset((void *)(cvas_pagetabs + pde * PTE_NUM), 0x00, sizeof(pte_t) * PTE_NUM);
 
-    kdbg("[VMEM] Allocated new page table (PDE=%d, phys addr=%x)\n", pde, page);
+    // kdbg("[VMEM] Allocated new page table (PDE=%d, phys addr=%x)\n", pde, page);
 
     return true;
 }
@@ -598,7 +598,7 @@ static void vmem_int_delete_unused_page_tables(uint32_t start, uint32_t n)
             // Clear PDE
             vmem_int_clear_pde(pde);
 
-            kdbg("[VMEM] Freed page table (PDE=%d, phys addr=%x)\n", pde, phys_page);
+            // kdbg("[VMEM] Freed page table (PDE=%d, phys addr=%x)\n", pde, phys_page);
         }
     }
 
