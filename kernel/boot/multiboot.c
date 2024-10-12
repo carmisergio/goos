@@ -36,7 +36,7 @@ void mb_read_data(multiboot_info_t *mbd_phys)
 
     // Check if memory map is present in multiboot info struct
     if (!(mbd->flags & MULTIBOOT_INFO_MEM_MAP))
-        panic("MB_READ_DATA_NO_MEMMAP");
+        panic("MB_READ_DATA_NO_MEMMAP", "No memory map in Multiboot info structure");
 
     // Read memory map information
     mmap_addr = (void *)mbd->mmap_addr;

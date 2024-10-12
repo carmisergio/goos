@@ -33,7 +33,7 @@ void alloc_test()
         }
         else
         {
-            panic("OUT_OF_MEMORY");
+            panic("OUT_OF_MEMORY", "");
         }
         // physmem_free(mem);
     }
@@ -59,7 +59,7 @@ void alloc_test()
         }
         else
         {
-            panic("OUT_OF_MEMORY");
+            panic("OUT_OF_MEMORY", "");
         }
         // physmem_free(mem);
     }
@@ -107,7 +107,7 @@ void alloc_test_2()
 
 void alloc_test_3()
 {
-    for (int i = 0; i < 1000; i++)
+    for (int i = 0; i < 10; i++)
     {
 
         klog("Allocating 1 page... ");
@@ -189,18 +189,26 @@ void kmain(multiboot_info_t *mbd)
     //
     klog("BOOTED!\n");
 
+    // klog("Test float: %f\n", 123.456);
+
     // *(int *)0x0100 = 10;
 
     // asm("int $1");
 
-    // alloc_test_3();
+    alloc_test_3();
 
-    // alloc_test_2();
+    alloc_test_2();
 
     // klog("Test finished\n");
 
-    while (true)
-        ;
-
     *(int *)0x0100 = 10;
+    //
+    // int d = 12 / 0;
+
+    // asm(
+    //     "mov $1, %eax\n"
+    //     "mov $2, %ebx\n"
+    //     "mov $3, %ecx\n"
+    //     "mov $4, %edx\n"
+    //     "int $14\n");
 }

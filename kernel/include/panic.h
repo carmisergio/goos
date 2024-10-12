@@ -4,6 +4,6 @@
 /*
  * Display panic message and halt system
  */
-void panic(char *code);
+void panic(char *code, char *message);
 
 #endif

@@ -200,6 +200,10 @@ void set_up_tss()
     tss.esp0 = (uint32_t)&kernel_stack_top;
     tss.iomap = sizeof(tss_struct_t);
 
+    // // Check allocation result
+    // if ((void *)tss.esp0 == MEM_FAIL)
+    //     panic("SET_UP_TSS_INT_STACK_ALLOC_FAIL", "Unable to allocate interrupt stack");
+
     kdbg("Interrupt stack: %x\n", tss.esp0);
 
     // Compute limit
@@ -212,10 +216,6 @@ void set_up_tss()
     gdt[gdt_tss_index].limit_low = limit & 0xFFFF;
     gdt[gdt_tss_index].limit_high = limit >> 16;
     gdt[gdt_tss_index].flags |= GDT_P; // Set present flag
-
-    // Check allocation result
-    if ((void *)tss.esp0 == MEM_FAIL)
-        panic("SET_UP_TSS_INT_STACK_ALLOC_FAIL");
 
     // Load TSS
     asm("ltr %0" : : "r"(GDT_SEGMENT_TSS));

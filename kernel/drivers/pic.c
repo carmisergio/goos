@@ -1,4 +1,4 @@
-#include "int/pic.h"
+#include "drivers/pic.h"
 
 #include "sys/io.h"
 

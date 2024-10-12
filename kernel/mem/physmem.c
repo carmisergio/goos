@@ -94,7 +94,7 @@ void physmem_init()
     // Map bitmap into kVAS
     physmem_bitmap = vmem_map_range_anyk_noalloc((void *)bitmap_paddr, bitmap_size);
     if (physmem_bitmap == NULL)
-        panic("PHYSMEM_INIT_BITMAP_MAP_FAIL");
+        panic("PHYSMEM_INIT_BITMAP_MAP_FAIL", "Unable to map bitmap into VAS");
 
     klog("Bitmap virtual addr: %x\n", physmem_bitmap);
 
@@ -167,10 +167,6 @@ void *physmem_alloc_n(uint32_t n)
 void physmem_free(void *addr)
 {
     uint32_t page = (uint32_t)addr / MEM_PAGE_SIZE;
-
-    // Check state of page in bitmap
-    if (physmem_is_free(addr))
-        panic("PHYSMEM_DOUBLE_FREE");
 
     // Free page
     mark_page_free(page);
@@ -256,7 +252,7 @@ static uint32_t allocate_bitmap(uint32_t size, srmmap_entry_t *srmmap,
     if (cur_run >= npages)
         return 0;
 
-    panic("PHYSMEM_NO_MEM_FOR_BITMAP");
+    panic("PHYSMEM_NO_MEM_FOR_BITMAP", "Couldn't find space for physical memory bitmap");
     return 0;
 }
 
@@ -318,7 +314,7 @@ static inline bool is_page_free(uint32_t page)
     // Check if page exists
     if (page >= physmem_bitmap_pages)
     {
-        panic("PHYSMEM_INVALID_PAGE_INT");
+        panic("PHYSMEM_INVALID_PAGE_INT", "Page does not exist");
     }
     return (physmem_bitmap[page / 8] & (1 << (page % 8))) != 0;
 }
@@ -327,7 +323,7 @@ static inline void mark_page_free(uint32_t page)
 {
     // Check state of page in bitmap
     if (is_page_free(page))
-        panic("PHYSMEM_DOUBLE_FREE_INT");
+        panic("PHYSMEM_DOUBLE_FREE_INT", "Can't free a page that is already free");
 
     // Free page
     physmem_bitmap[page / 8] |= (1 << (page % 8));
@@ -342,7 +338,7 @@ static inline void mark_page_used(uint32_t page)
 {
     // Check state of page in bitmap
     if (!is_page_free(page))
-        panic("PHYSMEM_DOUBLE_ALLOC_INT");
+        panic("PHYSMEM_DOUBLE_ALLOC_INT", "Trying to mark page as allocated, but it is already allocated");
 
     // Mark page as used
     physmem_bitmap[page / 8] &= ~(1 << (page % 8));

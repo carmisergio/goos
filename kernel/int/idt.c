@@ -20,7 +20,7 @@
 // Interrupt vectors (defined in vectors.S)
 extern void int_vector_0();
 extern void int_vector_1();
-extern void int_vector_2();
+// extern void int_vector_2();
 extern void int_vector_3();
 extern void int_vector_4();
 extern void int_vector_5();
@@ -33,23 +33,23 @@ extern void int_vector_11();
 extern void int_vector_12();
 extern void int_vector_13();
 extern void int_vector_14();
-extern void int_vector_15();
+// extern void int_vector_15();
 extern void int_vector_16();
-extern void int_vector_17();
-extern void int_vector_18();
-extern void int_vector_19();
-extern void int_vector_20();
-extern void int_vector_21();
-extern void int_vector_22();
-extern void int_vector_23();
-extern void int_vector_24();
-extern void int_vector_25();
-extern void int_vector_26();
-extern void int_vector_27();
-extern void int_vector_28();
-extern void int_vector_29();
-extern void int_vector_30();
-extern void int_vector_31();
+// extern void int_vector_17();
+// extern void int_vector_18();
+// extern void int_vector_19();
+// extern void int_vector_20();
+// extern void int_vector_21();
+// extern void int_vector_22();
+// extern void int_vector_23();
+// extern void int_vector_24();
+// extern void int_vector_25();
+// extern void int_vector_26();
+// extern void int_vector_27();
+// extern void int_vector_28();
+// extern void int_vector_29();
+// extern void int_vector_30();
+// extern void int_vector_31();
 extern void int_vector_32();
 extern void int_vector_33();
 extern void int_vector_34();
@@ -105,12 +105,18 @@ static inline void idt_int_set_entry(const uint8_t i, void (*isr)())
     idt[i].flags = IDT_TYPE_INT32 | IDT_KERNEL | IDT_P;
 }
 
+// Clear IDTentry
+static inline void idt_int_clear_entry(const uint8_t i)
+{
+    idt[i].flags = 0;
+}
+
 void set_up_idt()
 {
     // Set up gates
     idt_int_set_entry(0, int_vector_0);
     idt_int_set_entry(1, int_vector_1);
-    idt_int_set_entry(2, int_vector_2);
+    idt_int_clear_entry(2);
     idt_int_set_entry(3, int_vector_3);
     idt_int_set_entry(4, int_vector_4);
     idt_int_set_entry(5, int_vector_5);
@@ -123,23 +129,23 @@ void set_up_idt()
     idt_int_set_entry(12, int_vector_12);
     idt_int_set_entry(13, int_vector_13);
     idt_int_set_entry(14, int_vector_14);
-    idt_int_set_entry(15, int_vector_15);
+    idt_int_clear_entry(15);
     idt_int_set_entry(16, int_vector_16);
-    idt_int_set_entry(17, int_vector_17);
-    idt_int_set_entry(18, int_vector_18);
-    idt_int_set_entry(19, int_vector_19);
-    idt_int_set_entry(22, int_vector_22);
-    idt_int_set_entry(21, int_vector_21);
-    idt_int_set_entry(22, int_vector_22);
-    idt_int_set_entry(23, int_vector_23);
-    idt_int_set_entry(24, int_vector_24);
-    idt_int_set_entry(25, int_vector_25);
-    idt_int_set_entry(26, int_vector_26);
-    idt_int_set_entry(27, int_vector_27);
-    idt_int_set_entry(28, int_vector_28);
-    idt_int_set_entry(29, int_vector_29);
-    idt_int_set_entry(30, int_vector_30);
-    idt_int_set_entry(31, int_vector_31);
+    idt_int_clear_entry(17);
+    idt_int_clear_entry(18);
+    idt_int_clear_entry(19);
+    idt_int_clear_entry(22);
+    idt_int_clear_entry(21);
+    idt_int_clear_entry(22);
+    idt_int_clear_entry(23);
+    idt_int_clear_entry(24);
+    idt_int_clear_entry(25);
+    idt_int_clear_entry(26);
+    idt_int_clear_entry(27);
+    idt_int_clear_entry(28);
+    idt_int_clear_entry(29);
+    idt_int_clear_entry(30);
+    idt_int_clear_entry(31);
     idt_int_set_entry(32, int_vector_32);
     idt_int_set_entry(33, int_vector_33);
     idt_int_set_entry(34, int_vector_34);

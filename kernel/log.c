@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdint.h>
+#include "mini-printf.h"
 
 #include "log.h"
 #include "drivers/serial.h"
@@ -38,8 +39,9 @@ void klog(const char *fmt, ...)
     // Initialize valist for n Parameters
     va_start(args, fmt);
 
-    // Format
-    _klog_format(buf, fmt, args);
+    // // Format
+    // _klog_format(buf, fmt, args);
+    mini_vsnprintf(buf, KLOG_MAX_LEN, fmt, args);
 
     // Print to serial and VGA
     serial_prtstr(LOG_PORT, buf);

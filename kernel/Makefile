@@ -3,7 +3,7 @@ KERNEL_BIN:=kernel.elf
 CC:=i386-elf-gcc
 
 # Flag defaults
-CFLAGS?=-O0 -g -Wpedantic
+CFLAGS?=-O2 -g -Wpedantic
 LDFLAGS?=
 LIBS?=
 
@@ -33,12 +33,14 @@ int/interrupts.o \
 int/idt.o \
 int/vectors.o \
 int/load_idt.o \
-int/pic.o \
+int/exceptions.o \
 drivers/serial.o \
-drivers/vga.o
+drivers/vga.o \
+drivers/pic.o 
 
 KLIBC_OBJS =\
 klibc/string.o \
+klibc/mini-printf.o \
 
 
 OBJS=\

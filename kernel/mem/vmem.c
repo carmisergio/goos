@@ -393,14 +393,14 @@ static void vmem_int_set_pte(void *paddr, void *vaddr)
     // If no matching PDE is found for this page, there is no
     // page table to modify
     if ((cvas_pagedir[vmem_int_pde_index(vaddr)] & PDE_FLAG_PRESENT) == 0)
-        panic("VMEM_INT_MAP_PTE_PDE_NOT_PRESENT");
+        panic("VMEM_INT_MAP_PTE_PDE_NOT_PRESENT", "Trying to set PTE in a non-existent Page Table");
 
     // Compute PTE index
     pte_index = vmem_int_pte_index(vaddr);
 
     // Check if page is already mapped
     if ((cvas_pagetabs[pte_index] & PTE_FLAG_PRESENT) != 0)
-        panic("VMEM_INT_MAP_PTE_ALREADY_MAPPED");
+        panic("VMEM_INT_MAP_PTE_ALREADY_MAPPED", "Trying to set PTE, but already set");
 
     // Set PTE
     pte = (uint32_t)paddr;
@@ -446,14 +446,14 @@ static void vmem_int_clear_pte(void *vaddr)
     // If no matching PDE is found for this page, there is no
     // page table to modify
     if ((cvas_pagedir[vmem_int_pde_index(vaddr)] & PDE_FLAG_PRESENT) == 0)
-        panic("VMEM_INT_UNMAP_PDE_NOT_PRESENT");
+        panic("VMEM_INT_UNMAP_PDE_NOT_PRESENT", "Trying to unmap from a non-existent Page Table");
 
     // Compute PTE index
     pte_index = vmem_int_pte_index(vaddr);
 
     // Check if page is already unmapped
     if ((cvas_pagetabs[pte_index] & PTE_FLAG_PRESENT) == 0)
-        panic("VMEM_INT_UNMAP_PTE_NOT_PRESENT");
+        panic("VMEM_INT_UNMAP_PTE_NOT_PRESENT", "Trying to unmap, but no mapping is present");
 
     // Clear PTE
     cvas_pagetabs[pte_index] = 0;
@@ -549,7 +549,7 @@ static void vmem_int_set_pde(void *paddr, uint32_t pde_index)
 
     // Check if page is already mapped
     if ((cvas_pagedir[pde_index] & PDE_FLAG_PRESENT) != 0)
-        panic("VMEM_INT_SET_PDE_ALREADY_SET");
+        panic("VMEM_INT_SET_PDE_ALREADY_SET", "Trying to set PDE, but already set");
 
     // Set PDE
     pde = (uint32_t)paddr;
@@ -567,7 +567,7 @@ static void vmem_int_clear_pde(uint32_t pde_index)
 
     // Check if page is already unmapped
     if ((cvas_pagedir[pde_index] & PDE_FLAG_PRESENT) == 0)
-        panic("VMEM_INT_UNMAP_PDE_NOT_PRESENT");
+        panic("VMEM_INT_CLEAR_PDE_NOT_PRESENT", "Trying to clear PDE, but already clear");
 
     // Clear PTE
     cvas_pagedir[pde_index] = 0;

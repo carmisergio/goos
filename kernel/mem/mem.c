@@ -82,7 +82,7 @@ void mem_pfree(void *addr, uint32_t n)
         void *paddr = vmem_get_phys(vaddr);
         if (paddr == PHYSMEM_NULL)
         {
-            panic("MEM_PFREE_NOMAPPING");
+            panic("MEM_PFREE_NOMAPPING", "Can't free memory that was not allocated");
             return;
         }
 

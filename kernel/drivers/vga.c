@@ -1,3 +1,5 @@
+#include <stdbool.h>
+
 #include "sys/io.h"
 #include "mem/vmem.h"
 #include "drivers/vga.h"
@@ -15,6 +17,7 @@ uint16_t *vga_buffer;
 size_t vga_row;
 size_t vga_col;
 uint8_t vga_color_cur;
+bool newline_adjust;
 
 static inline uint16_t _vga_entry(char c, uint8_t col);
 static inline uint8_t _vga_entry_color(enum vga_color fg, enum vga_color bg);
@@ -30,7 +33,7 @@ void vga_init()
 
     // Check if mapping was succesful
     if (vga_buffer == NULL)
-        panic("VGA_BUF_MAP_FAIL");
+        panic("VGA_BUF_MAP_FAIL", "Unable to map VGA buffer into VAS");
 
     // Set up state
     vga_row = 0;
@@ -55,7 +58,10 @@ void vga_putchar(char c)
     // Handle \n character
     if (c == '\n')
     {
-        _vga_newline();
+        if (newline_adjust)
+            newline_adjust = false;
+        else
+            _vga_newline();
         return;
     }
 
@@ -64,7 +70,10 @@ void vga_putchar(char c)
     // Wrap text to new line
     vga_col++;
     if (vga_col >= VGA_CONSOLE_WIDTH)
+    {
         _vga_newline();
+        newline_adjust = true;
+    }
 }
 
 void vga_prtstr(const char *str)
