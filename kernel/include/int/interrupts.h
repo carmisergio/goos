@@ -30,4 +30,16 @@ typedef struct
  */
 void interrupts_init();
 
+// Enable hardware interrupts
+static inline void sti()
+{
+    __asm__("sti");
+}
+
+// Disable hardware interrupts
+static inline void cli()
+{
+    __asm__("cli");
+}
+
 #endif

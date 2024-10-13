@@ -12,6 +12,7 @@
 #include "drivers/vga.h"
 #include "drivers/serial.h"
 #include "int/interrupts.h"
+#include "drivers/pit.h"
 
 // Boot information structure
 boot_info_t boot_info;
@@ -189,23 +190,33 @@ void kmain(multiboot_info_t *mbd)
     //
     klog("BOOTED!\n");
 
+    uint32_t reset = (PIT_FREQ * 10) / 1000;
+
+    klog("Reset value: %d\n", reset);
+
+    pit_setup_channel(PIT_CHANNEL_0, PIT_MODE_3, reset);
+
     // klog("Test float: %f\n", 123.456);
 
     // *(int *)0x0100 = 10;
 
-    // asm("int $1");
+    // __asm__("int $1");
 
-    alloc_test_3();
+    // alloc_test_3();
 
-    alloc_test_2();
+    // alloc_test_2();
 
-    // klog("Test finished\n");
+    klog("Test finished\n");
+    //
 
-    *(int *)0x0100 = 10;
+    while (true)
+        ;
+
+    // *(int *)0x0100 = 10;
     //
     // int d = 12 / 0;
 
-    // asm(
+    // __asm__(
     //     "mov $1, %eax\n"
     //     "mov $2, %ebx\n"
     //     "mov $3, %ecx\n"

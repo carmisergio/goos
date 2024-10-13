@@ -20,7 +20,7 @@ void interrupts_init()
     pic_init(IRQ_VEC_OFFSET);
 
     // Enable hardware interrupts
-    asm("sti");
+    sti();
 }
 
 void interrupt_handler(interrupt_context_t *ctx)

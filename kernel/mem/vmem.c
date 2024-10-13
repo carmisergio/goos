@@ -633,7 +633,7 @@ static inline void vmem_int_flush_tlb()
     uint32_t tmp;
 
     // Flush TLB by writing to the CR3 register
-    asm(
+    __asm__(
         "mov %%cr3, %0\n"
-        "mov %0, %%cr3\n" : [temp] "=r"(tmp) :);
+        "mov %0, %%cr3\n" : [temp] "=r"(tmp) : : "memory");
 }

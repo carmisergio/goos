@@ -218,5 +218,5 @@ void set_up_tss()
     gdt[gdt_tss_index].flags |= GDT_P; // Set present flag
 
     // Load TSS
-    asm("ltr %0" : : "r"(GDT_SEGMENT_TSS));
+    __asm__("ltr %0" : : "r"(GDT_SEGMENT_TSS) : "memory");
 }

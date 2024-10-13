@@ -11,7 +11,7 @@
 static inline uint32_t get_cr2_value()
 {
     uint32_t cr2;
-    asm("mov %%cr2, %0" : "=r"(cr2));
+    __asm__("mov %%cr2, %0" : "=r"(cr2));
     return cr2;
 }
 

@@ -3,10 +3,10 @@
 #include "panic.h"
 #include "drivers/vga.h"
 #include "log.h"
+#include "int/interrupts.h"
 
 // Internal function prototypes
 void _panic_halt();
-static inline void _cli();
 static inline void _hlt();
 
 /* Public functions */
@@ -21,7 +21,7 @@ void panic(char *code, char *message)
     klog("********************************************************************************\n");
     klog("*                        QUACK! This is a KERNEL PANIC!                        *\n");
     klog("********************************************************************************\n");
-    klog("Code: %s\n\n", code);
+    klog("Code: %s\n", code);
     klog("%s\n", message);
 
     // Halt processor
@@ -36,7 +36,7 @@ void panic(char *code, char *message)
  */
 void _panic_halt()
 {
-    _cli();
+    cli();
     while (true)
     {
         _hlt();
@@ -44,17 +44,9 @@ void _panic_halt()
 }
 
 /*
- * Clear interrupts
- */
-static inline void _cli()
-{
-    asm volatile("cli");
-}
-
-/*
  * Halt processor
  */
 static inline void _hlt()
 {
-    asm volatile("hlt");
+    __asm__("hlt");
 }
