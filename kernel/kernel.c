@@ -6,13 +6,14 @@
 #include "mem/mem.h"
 #include "mem/physmem.h"
 #include "mem/vmem.h"
-#include "boot_info.h"
+#include "boot/boot_info.h"
 #include "panic.h"
 #include "boot/multiboot_structs.h"
 #include "drivers/vga.h"
 #include "drivers/serial.h"
 #include "int/interrupts.h"
 #include "drivers/pit.h"
+#include "clock.h"
 
 // Boot information structure
 boot_info_t boot_info;
@@ -185,16 +186,13 @@ void kmain(multiboot_info_t *mbd)
     // Initialize interrupts
     interrupts_init();
 
+    // Initialise system clock
+    clock_init();
+
     // alloc_test();
     // alloc_test_2();
     //
     klog("BOOTED!\n");
-
-    uint32_t reset = (PIT_FREQ * 10) / 1000;
-
-    klog("Reset value: %d\n", reset);
-
-    pit_setup_channel(PIT_CHANNEL_0, PIT_MODE_3, reset);
 
     // klog("Test float: %f\n", 123.456);
 
@@ -206,11 +204,22 @@ void kmain(multiboot_info_t *mbd)
 
     // alloc_test_2();
 
-    klog("Test finished\n");
+    // klog("Test finished\n");
     //
 
-    while (true)
-        ;
+    for (int i = 0; i < 5; i++)
+    {
+        klog("Current value: %d\n", clock_get_local());
+        clock_delay_ms(1000);
+    }
+
+    clock_set_local(3600);
+
+    for (int i = 0; i < 5; i++)
+    {
+        klog("Current value: %d\n", clock_get_local());
+        clock_delay_ms(1000);
+    }
 
     // *(int *)0x0100 = 10;
     //

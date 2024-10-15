@@ -6,7 +6,7 @@
 
 #include "log.h"
 #include "boot/multiboot_structs.h"
-#include "boot_info.h"
+#include "boot/boot_info.h"
 #include "mem/const.h"
 #include "mem/vmem.h"
 #include "panic.h"

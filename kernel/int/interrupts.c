@@ -8,6 +8,10 @@
 #include "log.h"
 #include "panic.h"
 #include "drivers/pic.h"
+#include "clock.h"
+
+// Internal functions
+void handle_irq(uint16_t irq);
 
 void interrupts_init()
 {
@@ -25,11 +29,9 @@ void interrupts_init()
 
 void interrupt_handler(interrupt_context_t *ctx)
 {
-    // klog("Interrupt! vector = %d\n", ctx->vec);
-    // klog("  Previous EIP: %x\n", ctx->eip);
-
     if (ctx->vec < 32)
     {
+        // CPU exception
         handle_exception(ctx);
     }
     else
@@ -37,11 +39,23 @@ void interrupt_handler(interrupt_context_t *ctx)
         // Hardare interrupt
 
         // Figure out which IRQ was raised
-        uint32_t irq = ctx->vec - IRQ_VEC_OFFSET;
+        uint16_t irq = ctx->vec - IRQ_VEC_OFFSET;
 
-        kdbg("[INT] IRQ %d\n", irq);
-
-        // Send End of Interrupt sequence
-        pic_int_send_eoi(irq);
+        handle_irq(irq);
     }
+}
+
+// Handle hardware interrupt
+void handle_irq(uint16_t irq)
+{
+    switch (irq)
+    {
+    case 0:
+        // Timer interrupt
+        clock_handle_timer_irq();
+        break;
+    }
+
+    // Send End of Interrupt sequence
+    pic_int_send_eoi(irq);
 }
