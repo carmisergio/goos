@@ -231,4 +231,7 @@ void kmain(multiboot_info_t *mbd)
     //     "mov $3, %ecx\n"
     //     "mov $4, %edx\n"
     //     "int $14\n");
+
+    while (true)
+        ;
 }

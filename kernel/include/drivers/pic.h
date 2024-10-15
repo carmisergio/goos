@@ -2,6 +2,7 @@
 #define _INT_PIC 1
 
 #include <stdint.h>
+#include <stdbool.h>
 
 /*
  * Initialize the Programmable Interrupt Controller,
@@ -18,6 +19,18 @@ void pic_init(uint8_t start_vec);
  * #### Parameters
  *   - uint8_t irq: irq that should be acknowledged
  */
-void pic_int_send_eoi(uint8_t irq);
+void pic_send_eoi(uint8_t irq);
+
+/*
+ * Check if the interrupt was a spurious interrupt
+ * If so, perform appropriate actions and return true.
+ * Otherwise, return false
+ * #### Parameters:
+ *   - uint8_t irq: irq that was raised (can only be 7 -> master spurious irq,
+ *                  or 15 -> slave spurious irq)
+ * #### Returns:
+ *   bool: wether or not this was a spurious IRQ
+ */
+bool pic_check_spurious(uint8_t irq);
 
 #endif

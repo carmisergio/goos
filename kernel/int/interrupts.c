@@ -54,8 +54,20 @@ void handle_irq(uint16_t irq)
         // Timer interrupt
         clock_handle_timer_irq();
         break;
+    case 7:
+        // LPT1
+        // Handle spurious interrupts
+        if (pic_check_spurious(irq))
+            return;
+        break;
+    case 15:
+        // Secondary ATA HDD
+        // Handle spurious interrupts
+        if (pic_check_spurious(irq))
+            return;
+        break;
     }
 
     // Send End of Interrupt sequence
-    pic_int_send_eoi(irq);
+    pic_send_eoi(irq);
 }
