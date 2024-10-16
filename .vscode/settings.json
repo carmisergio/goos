@@ -14,7 +14,8 @@
     "gdt.h": "c",
     "io.h": "c",
     "interrupts.h": "c",
-    "pit.h": "c"
+    "pit.h": "c",
+    "kbdctl.h": "c"
   },
   "C_Cpp.default.compilerPath": "/usr/bin/gcc"
 }

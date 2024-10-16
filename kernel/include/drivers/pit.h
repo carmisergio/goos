@@ -1,5 +1,5 @@
-#ifndef _INT_PIT
-#define _INT_PIT 1
+#ifndef _DRIVERS_PIT
+#define _DRIVERS_PIT 1
 
 #include <stdint.h>
 

@@ -38,7 +38,9 @@ int/exceptions.o \
 drivers/serial.o \
 drivers/vga.o \
 drivers/pic.o \
-drivers/pit.o 
+drivers/pit.o \
+drivers/kbdctl.o \
+drivers/ps2kbd.o 
 
 KLIBC_OBJS =\
 klibc/string.o \

@@ -1,5 +1,5 @@
-#ifndef _INT_PIC
-#define _INT_PIC 1
+#ifndef _DRIVERS_PIC
+#define _DRIVERS_PIC 1
 
 #include <stdint.h>
 #include <stdbool.h>

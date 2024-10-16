@@ -15,7 +15,7 @@ void handle_irq(uint16_t irq);
 
 void interrupts_init()
 {
-    klog("Initializing interrupts...\n");
+    klog("[INT] Initializing...\n");
 
     // Load IDT
     set_up_idt();

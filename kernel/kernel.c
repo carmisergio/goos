@@ -13,6 +13,8 @@
 #include "drivers/serial.h"
 #include "int/interrupts.h"
 #include "drivers/pit.h"
+#include "drivers/kbdctl.h"
+#include "drivers/ps2kbd.h"
 #include "clock.h"
 
 // Boot information structure
@@ -186,13 +188,21 @@ void kmain(multiboot_info_t *mbd)
     // Initialize interrupts
     interrupts_init();
 
-    // Initialise system clock
+    // Initialize drivers
     clock_init();
+    kbdctl_init();
+    ps2kbd_init();
 
     // alloc_test();
     // alloc_test_2();
     //
     klog("BOOTED!\n");
+
+    for (int i = 0; i < 5; i++)
+    {
+        clock_delay_ms(1000);
+        klog("Count: %d\n", i + 1);
+    }
 
     // klog("Test float: %f\n", 123.456);
 
@@ -207,21 +217,17 @@ void kmain(multiboot_info_t *mbd)
     // klog("Test finished\n");
     //
 
-    for (int i = 0; i < 5; i++)
+    // clock_set_local(120);
+    for (;;)
     {
-        klog("Current value: %d\n", clock_get_local());
+        uint32_t time = clock_get_local();
+        klog("Current time: %02d:%02d:%02d\n", time / 3600, ((time / 60) % 60), time % 60);
+        if (time == 40)
+            *(int *)0x0100 = 10;
+
         clock_delay_ms(1000);
     }
 
-    clock_set_local(3600);
-
-    for (int i = 0; i < 5; i++)
-    {
-        klog("Current value: %d\n", clock_get_local());
-        clock_delay_ms(1000);
-    }
-
-    // *(int *)0x0100 = 10;
     //
     // int d = 12 / 0;
 
