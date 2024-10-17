@@ -8,16 +8,19 @@
 // Valid values:1 - 50
 #define CLOCK_RESOLUTION 50 // (ms)
 
+// Internal function prototypes
+static void clock_handle_timer_irq();
+
 // Current system clock value
 static volatile uint64_t system_time;
 
 // Local time offset
 static uint32_t local_time_offset;
 
+/* Public functions */
+
 void clock_init()
 {
-    cli();
-
     // Initialize
     system_time = 0;
     local_time_offset = 0;
@@ -26,7 +29,8 @@ void clock_init()
     uint16_t pit_reset = ((uint32_t)PIT_FREQ * (uint32_t)CLOCK_RESOLUTION) / 1000;
     pit_setup_channel(PIT_CHANNEL_0, PIT_MODE_3, pit_reset);
 
-    sti();
+    // Register timer IRQ handler
+    interrupts_register_irq(0, clock_handle_timer_irq);
 }
 
 uint64_t clock_get_system()
@@ -52,7 +56,9 @@ void clock_delay_ms(uint32_t time)
         ;
 }
 
-void clock_handle_timer_irq()
+/* Internal functions */
+
+static void clock_handle_timer_irq()
 {
     // Each tick is (CLOCK_RESOLUTION) milliseconds long
     system_time += CLOCK_RESOLUTION;

@@ -36,8 +36,4 @@ void clock_set_local(uint32_t time);
  */
 void clock_delay_ms(uint32_t time);
 
-// Clock IRQ
-// DO NOT call this function outside the timer IRQ handler!
-void clock_handle_timer_irq();
-
 #endif

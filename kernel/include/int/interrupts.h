@@ -30,6 +30,14 @@ typedef struct
  */
 void interrupts_init();
 
+/*
+ * Register handler for an IRQ
+ * #### Parameters:
+ *   - uint8_t irq: IRQ number
+ *   - void (*handler)(): pointer to handler function
+ */
+void interrupts_register_irq(uint8_t irq, void (*handler)());
+
 // Enable hardware interrupts
 static inline void sti()
 {

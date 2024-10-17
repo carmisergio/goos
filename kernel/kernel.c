@@ -172,6 +172,11 @@ void alloc_test_3()
     // vmem_log_vaddrspc();
 }
 
+void test_irq()
+{
+    klog("IRQ0\n");
+}
+
 /*
  * Main kernel entry point
  * Remember to initialize boot_info before calling this!
