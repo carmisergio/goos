@@ -38,6 +38,14 @@ void interrupts_init();
  */
 void interrupts_register_irq(uint8_t irq, void (*handler)());
 
+/*
+ * Unregister handler for an IRQ
+ * #### Parameters:
+ *   - uint8_t irq: IRQ number
+ *   - void (*handler)(): pointer to handler function
+ */
+void interrupts_unregister_irq(uint8_t irq, void (*handler)());
+
 // Enable hardware interrupts
 static inline void sti()
 {

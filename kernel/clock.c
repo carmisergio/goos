@@ -3,10 +3,13 @@
 #include "int/interrupts.h"
 #include "drivers/pit.h"
 #include "log.h"
+#include "cpu.h"
 
 // Resolution of the system clock (in milliseconds)
 // Valid values:1 - 50
 #define CLOCK_RESOLUTION 50 // (ms)
+
+#define TIMER_IRQ 0
 
 // Internal function prototypes
 static void clock_handle_timer_irq();
@@ -30,7 +33,7 @@ void clock_init()
     pit_setup_channel(PIT_CHANNEL_0, PIT_MODE_3, pit_reset);
 
     // Register timer IRQ handler
-    interrupts_register_irq(0, clock_handle_timer_irq);
+    interrupts_register_irq(TIMER_IRQ, clock_handle_timer_irq);
 }
 
 uint64_t clock_get_system()
@@ -53,7 +56,7 @@ void clock_delay_ms(uint32_t time)
     uint64_t start = clock_get_system();
 
     while (clock_get_system() - start < time)
-        ;
+        pause();
 }
 
 /* Internal functions */

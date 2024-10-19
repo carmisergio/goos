@@ -10,9 +10,10 @@
 #include "drivers/pic.h"
 #include "clock.h"
 
-#define NUM_IRQ 16
-#define MAX_IRQ_HANDLERS 1 // Maximum IRQ handlers for each IRQ
+// Maximum IRQ handlers for each IRQ
+#define MAX_IRQ_HANDLERS 2
 
+#define NUM_IRQ 16
 #define IRQ_UNUSED 0
 
 // Internal functions
@@ -98,7 +99,46 @@ void interrupts_register_irq(uint8_t irq, void (*handler)())
     }
 }
 
+void interrupts_unregister_irq(uint8_t irq, void (*handler)())
+{
+    // Panic message
+    const size_t msg_n = 64;
+    char msg[msg_n];
+
+    // Check if irq is valid
+    if (irq >= NUM_IRQ)
+    {
+        mini_snprintf(msg, msg_n,
+                      "Tried to unregister invalid IRQ\n\nIRQ: %d\nHandler: 0x%x",
+                      irq, handler);
+        panic("INT_UNREGISTER_IRQ_INVALID_IRQ", msg);
+    }
+
+    cli();
+
+    for (size_t i = 0; i < MAX_IRQ_HANDLERS; i++)
+    {
+        if (irq_handlers[irq][i] == handler)
+        {
+            // Unregister handler
+            irq_handlers[irq][i] = IRQ_UNUSED;
+
+            sti();
+            return;
+        }
+    }
+
+    // The handler wasn't registered previously
+    sti();
+    mini_snprintf(msg, msg_n,
+                  "Handler not registered\n\nIRQ: %d\nHandler: 0x%x",
+                  irq, handler);
+    panic("INT_UNREGISTER_IRQ_HANDLER_NOT_REGISTERED", msg);
+}
+
 /* Internal functions */
+
+// Main ISR, called from vectors in vectors.S
 void interrupt_handler(interrupt_context_t *ctx)
 {
     if (ctx->vec < 32)
@@ -108,12 +148,8 @@ void interrupt_handler(interrupt_context_t *ctx)
     }
     else
     {
-        // Hardare interrupt
-
-        // Figure out which IRQ was raised
-        uint16_t irq = ctx->vec - IRQ_VEC_OFFSET;
-
-        handle_irq(irq);
+        // Hardware interrupt
+        handle_irq(ctx->vec - IRQ_VEC_OFFSET);
     }
 }
 
@@ -125,7 +161,7 @@ void handle_irq(uint16_t irq)
         return;
 
     // Dispatch IRQs
-    for (size_t i = 0; i < NUM_IRQ; i++)
+    for (size_t i = 0; i < MAX_IRQ_HANDLERS; i++)
     {
         if (irq_handlers[irq][i] != IRQ_UNUSED)
             irq_handlers[irq][i]();
