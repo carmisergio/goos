@@ -4,9 +4,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "drivers/ps2.h"
+
 /*
  * Initialize PS2 keyboard
+ * Sets driver passed as pointer
+ * Returns false if initialization failed
  */
-void ps2kbd_init();
+bool ps2kbd_init(ps2_callbacks *driver, ps2_port port);
 
 #endif
