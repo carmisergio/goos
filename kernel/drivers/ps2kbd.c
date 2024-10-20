@@ -237,6 +237,5 @@ static void select_scan_code_set(ps2kbd_drv_state *drv_state,
                                  ps2_scan_code_set scan_code_set)
 {
     send_cmd(drv_state, 0xF0);
-    // send_cmd(drv_state, scan_code_set);
-    send_cmd(drv_state, 0);
+    send_cmd(drv_state, scan_code_set);
 }

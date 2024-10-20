@@ -44,8 +44,8 @@ void kmain(multiboot_info_t *mbd)
 
     for (;;)
     {
-        uint32_t time = clock_get_local();
-        klog("Current time: %02d:%02d:%02d\n", time / 3600, ((time / 60) % 60), time % 60);
+        // uint32_t time = clock_get_local();
+        // klog("Current time: %02d:%02d:%02d\n", time / 3600, ((time / 60) % 60), time % 60);
 
         clock_delay_ms(1000);
     }

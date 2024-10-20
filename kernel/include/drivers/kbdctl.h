@@ -10,11 +10,6 @@
 void kbdctl_init();
 
 /*
- * Enable device IRQs
- */
-void kbdctl_enable_irqs();
-
-/*
  * Reset the CPU
  * This is accomplished by pulsing line 0 on the Keyboard Controller
  * output port

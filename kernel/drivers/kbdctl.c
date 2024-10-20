@@ -11,6 +11,8 @@
 #include "drivers/ps2.h"
 #include "drivers/ps2kbd.h"
 
+#define DEBUG 1
+
 // Hardware specifications
 #define PORT_DATA 0x60
 #define PORT_CMD 0x64
@@ -23,7 +25,9 @@
 #define PS2_SELFTEST_OK 0xAA
 #define PS2_RESEND 0xFE
 
-#define TIMEOUT 100 // (ms)
+#define TIMEOUT 100       // (ms)
+#define POST_TIMEOUT 1000 // (ms)
+#define RESEND_RETRIES 10
 
 typedef enum
 {
@@ -98,23 +102,23 @@ typedef enum
 } kbdctl_port;
 
 // Internal function prototypes
-static inline void kbdctl_send_cmd(kbdctl_cmd cmd);
-static inline kbdctl_sreg kbdctl_read_sreg();
-static inline void kbdctl_write_cfg_byte(kbdctl_cfg_byte cfg_byte);
-static inline kbdctl_cfg_byte kbdctl_read_cfg_byte();
+static inline void write_cmd(kbdctl_cmd cmd);
+static inline kbdctl_sreg read_sreg();
+static inline void write_cfg_byte(kbdctl_cfg_byte cfg_byte);
+static inline kbdctl_cfg_byte read_cfg_byte();
 static inline bool kbdctl_selftest();
-static inline void kbdctl_flush_outbuf();
-static inline bool kbdctl_outbuf_full();
-static inline bool kbdctl_inbuf_full();
-static inline uint8_t kbdctl_read_data();
-static inline bool kbdctl_read_data_noblock(uint8_t *data);
-bool kbdctl_read_data_timeout(uint8_t *data, uint32_t timeout);
+static inline void flush_outbuf();
+static inline bool outbuf_full();
+static inline bool inbuf_full();
+static inline uint8_t read_data();
+static inline bool read_data_noblock(uint8_t *data);
+bool read_data_timeout(uint8_t *data, uint32_t timeout);
 static inline void write_data(uint8_t data);
 static inline void write_data_port(uint8_t data, kbdctl_port port);
-static bool write_data_resend(uint8_t byte, kbdctl_port port);
 static bool device_initialize(device_type *type, kbdctl_port port);
-static device_type identify_device();
+static device_type device_identify();
 static char *get_device_type_string(device_type type);
+static bool device_self_test(kbdctl_port port);
 static void write_data_port_1(uint8_t data);
 static void write_data_port_2(uint8_t data);
 static void enable_port_2();
@@ -140,25 +144,30 @@ void kbdctl_init()
     klog("[KBDCTL] Initializing controller...\n");
 
     // Disable devices
-    kbdctl_send_cmd(CMD_DISABLE_PORT1);
-    kbdctl_send_cmd(CMD_DISABLE_PORT2);
+    write_cmd(CMD_DISABLE_PORT1);
+    write_cmd(CMD_DISABLE_PORT2);
 
     // Flush output buffer
-    kbdctl_flush_outbuf();
+    flush_outbuf();
 
     // Initialize controller
-    cfg_byte = kbdctl_read_cfg_byte();
+    cfg_byte = read_cfg_byte();
     cfg_byte.port1_irq_en = 0;
     cfg_byte.port2_irq_en = 0;
     cfg_byte.port1_clock_dis = 1;
     cfg_byte.port2_clock_dis = 1;
     cfg_byte.port1_trans_en = 0;
-    kbdctl_write_cfg_byte(cfg_byte);
+    cfg_byte.zero = 0;
+    write_cfg_byte(cfg_byte);
+
+#ifdef DEBUG
+    klog("[KBDCTL] Config byte (0): 0x%x\n", read_cfg_byte().bits);
+#endif
 
     // Controller self test
     if (!kbdctl_selftest())
     {
-        kdbg("[KBDCTL] Selftest failure!");
+        klog("[KBDCTL] Selftest failure!\n");
 
         // Exit from driver
         return;
@@ -166,74 +175,103 @@ void kbdctl_init()
 
     // Self test may reset controller configuration,
     // make sure its set correctly
-    kbdctl_write_cfg_byte(cfg_byte);
+    write_cfg_byte(cfg_byte);
+
+#ifdef DEBUG
+    klog("[KBDCTL] Config byte (1): 0x%x\n", read_cfg_byte().bits);
+#endif
 
     // Check if the controller has two ports
-    kbdctl_send_cmd(CMD_ENABLE_PORT2);
-    if (kbdctl_read_cfg_byte().port2_clock_dis == 0)
+    write_cmd(CMD_ENABLE_PORT2);
+    if (read_cfg_byte().port2_clock_dis == 0)
     {
+#ifdef DEBUG
+        klog("[KBDCTL] Second port detected\n");
+#endif
         // Controller has two ports
         use_port_2 = true;
 
         // Disable second port again
-        kbdctl_write_cfg_byte(cfg_byte);
+        write_cfg_byte(cfg_byte);
     }
 
+#ifdef DEBUG
+    klog("[KBDCTL] Config byte (2): 0x%x\n", read_cfg_byte().bits);
+#endif
+
     // Perform interface checks
-    kbdctl_send_cmd(CMD_TEST_PORT1);
-    if (kbdctl_read_data() != RES_INT_TEST_OK)
+    write_cmd(CMD_TEST_PORT1);
+    if (read_data() != RES_INT_TEST_OK)
     {
-        klog("Port 1 interface test failed!\n");
+        klog("[KBDCTL] Port 1 interface test failed!\n");
         // Disable port 1
         use_port_1 = false;
     }
     if (use_port_2)
     {
-        kbdctl_send_cmd(CMD_TEST_PORT2);
-        if (kbdctl_read_data() != RES_INT_TEST_OK)
+        write_cmd(CMD_TEST_PORT2);
+        if (read_data() != RES_INT_TEST_OK)
         {
-            klog("Port 2 interface test failed!\n");
+            klog("[KBDCTL] Port 2 interface test failed!\n");
             // Disable port 2
             use_port_2 = false;
         }
     }
 
-    // Reset device 1
+#ifdef DEBUG
+    klog("[KBDCTL] Config byte (3): 0x%x\n", read_cfg_byte().bits);
+#endif
+
+    // Reset and identify device 1
     if (use_port_1)
     {
         // Enable port 1
         cfg_byte.port1_clock_dis = 0;
-        kbdctl_write_cfg_byte(cfg_byte);
+        write_cfg_byte(cfg_byte);
+        write_cmd(CMD_ENABLE_PORT1);
 
         use_port_1 = device_initialize(&dev1_type, PORT_1);
 
         // We disable the port again to distinguish between messages coming
         // from the two ports during initialization
         cfg_byte.port1_clock_dis = 1;
-        kbdctl_write_cfg_byte(cfg_byte);
+        write_cfg_byte(cfg_byte);
+        write_cmd(CMD_DISABLE_PORT1);
     }
 
-    // Reset device 2
+    // Reset and identify device 2
     if (use_port_2)
     {
         // Enable port 2
         cfg_byte.port2_clock_dis = 0;
-        kbdctl_write_cfg_byte(cfg_byte);
+        write_cfg_byte(cfg_byte);
+        write_cmd(CMD_ENABLE_PORT2);
 
         use_port_2 = device_initialize(&dev2_type, PORT_2);
 
         // We disable the port again to distinguish between messages coming
         // from the two ports during initialization
         cfg_byte.port2_clock_dis = 1;
-        kbdctl_write_cfg_byte(cfg_byte);
+        write_cfg_byte(cfg_byte);
+        write_cmd(CMD_DISABLE_PORT2);
     }
 
-    // Enable ports and start drivers
+#ifdef DEBUG
+    klog("[KBDCTL] Config byte (4): 0x%x\n", read_cfg_byte().bits);
+#endif
+
+    // Enable port interrupts
+    cfg_byte.port1_irq_en = 1;
+    cfg_byte.port2_irq_en = 1;
+    write_cfg_byte(cfg_byte);
+
+    // Register interrupts and start drivers
     if (use_port_1)
     {
-        cfg_byte.port1_irq_en = 1;
-        cfg_byte.port1_clock_dis = 0;
-        kbdctl_write_cfg_byte(cfg_byte);
+        // #ifdef DEBUG
+        //         klog("[KBDCTL] Config byte (5): 0x%x\n", kbdctl_read_cfg_byte().bits);
+        // #endif
+
         interrupts_register_irq(IRQ_PORT1, kbdctl_irq_port1);
 
         // Start driver
@@ -256,19 +294,20 @@ void kbdctl_init()
         // If driver initialization failed, disable IRQ
         if (!init_result)
         {
-            cfg_byte.port1_irq_en = 0;
-            cfg_byte.port1_clock_dis = 1;
-            kbdctl_write_cfg_byte(cfg_byte);
+#ifdef DEBUG
+            klog("[KBDCTL] Port 1 driver initialization failed!\n");
+#endif
+            write_cmd(CMD_DISABLE_PORT1);
             interrupts_unregister_irq(IRQ_PORT1, kbdctl_irq_port1);
         }
     }
 
     if (use_port_2)
     {
-        cfg_byte.port2_irq_en = 1;
-        cfg_byte.port2_clock_dis = 1;
-        kbdctl_write_cfg_byte(cfg_byte);
-        kbdctl_send_cmd(CMD_ENABLE_PORT2);
+        // #ifdef DEBUG
+        //         klog("[KBDCTL] Config byte (6): 0x%x\n", kbdctl_read_cfg_byte().bits);
+        // #endif
+
         interrupts_register_irq(IRQ_PORT2, kbdctl_irq_port2);
 
         // Start driver
@@ -291,9 +330,10 @@ void kbdctl_init()
         // If driver initialization failed, disable IRQ
         if (!init_result)
         {
-            cfg_byte.port2_irq_en = 0;
-            cfg_byte.port2_clock_dis = 1;
-            kbdctl_write_cfg_byte(cfg_byte);
+#ifdef DEBUG
+            klog("[KBDCTL] Port 2 driver initialization failed!\n");
+#endif
+            write_cmd(CMD_DISABLE_PORT2);
             interrupts_unregister_irq(IRQ_PORT2, kbdctl_irq_port2);
         }
     }
@@ -301,76 +341,56 @@ void kbdctl_init()
 
 void kbdctl_reset_cpu()
 {
-    kbdctl_send_cmd(CMD_PULSE_OUTP0);
+    write_cmd(CMD_PULSE_OUTP0);
 }
 
 /* Internal functions */
 
 // Send command to keyboard controller
-static inline void kbdctl_send_cmd(kbdctl_cmd cmd)
+static inline void write_cmd(kbdctl_cmd cmd)
 {
+    // Wait for buffer to be empty
+    while (inbuf_full())
+        pause();
+
     outb(PORT_CMD, cmd);
 }
 
 // Read keyboard controller status register
-static inline kbdctl_sreg kbdctl_read_sreg()
+static inline kbdctl_sreg read_sreg()
 {
     kbdctl_sreg sreg;
     sreg.bits = inb(PORT_CMD);
     return sreg;
 }
 
-// Write keyboard controller configuration byte
-static inline void kbdctl_write_cfg_byte(kbdctl_cfg_byte cfg_byte)
+// Write data to the keyboard controller outupt buffer
+static inline void write_data(uint8_t data)
 {
-    kbdctl_send_cmd(CMD_WRITE_BYTE_0);
-    outb(PORT_DATA, cfg_byte.bits);
+    // Wait until buffer is empty
+    while (inbuf_full())
+        pause();
+
+    outb(PORT_DATA, data);
 }
 
-// Read keyboard controller configuration byte
-static inline kbdctl_cfg_byte kbdctl_read_cfg_byte()
-{
-    outb(PORT_CMD, CMD_READ_BYTE_0);
-    kbdctl_cfg_byte cfg_byte;
-    cfg_byte.bits = inb(PORT_DATA);
-    return cfg_byte;
-}
-
-// Perform keyboard controller self test
-static inline bool kbdctl_selftest()
-{
-    // Start self test
-    outb(PORT_CMD, CMD_TEST_KBDCTL);
-
-    // Read result
-    uint8_t result = kbdctl_read_data();
-    return result == RES_SELFTEST_OK;
-}
-
-// Flush the keyboard controller output buffer
-static inline void kbdctl_flush_outbuf()
-{
-    while (kbdctl_outbuf_full())
-        kbdctl_read_data();
-}
-
-// Read data from Keyboard controller
-static inline uint8_t kbdctl_read_data()
+// Read data from Keyboard controller output buffer
+static inline uint8_t read_data()
 {
     // Wait for data to be available
-    while (!kbdctl_outbuf_full())
+    while (!outbuf_full())
         pause();
 
     return inb(PORT_DATA);
 }
 
-// Read data from Keyboard controller,
+// Read data from Keyboard controller output buffer,
 // exit immediately if no data is present
 // Returns false if no data was available
-static inline bool kbdctl_read_data_noblock(uint8_t *data)
+static inline bool read_data_noblock(uint8_t *data)
 {
     // Wait for data to be available
-    if (!kbdctl_outbuf_full())
+    if (!outbuf_full())
         return false;
 
     *data = inb(PORT_DATA);
@@ -378,13 +398,13 @@ static inline bool kbdctl_read_data_noblock(uint8_t *data)
     return true;
 }
 
-// Read data from Keyboard controller with timeout (ms)
-bool kbdctl_read_data_timeout(uint8_t *data, uint32_t timeout)
+// Read data from Keyboard controller output buffer with timeout (ms)
+bool read_data_timeout(uint8_t *data, uint32_t timeout)
 {
     uint32_t start = clock_get_system();
 
     // Wait for data to be available
-    while (!kbdctl_outbuf_full())
+    while (!outbuf_full())
     {
         pause();
         if (clock_get_system() - start > timeout)
@@ -397,26 +417,50 @@ bool kbdctl_read_data_timeout(uint8_t *data, uint32_t timeout)
     return true;
 }
 
-// Check if output buffer of the Keyboard controller is full
-static inline bool kbdctl_outbuf_full()
+// Check if the output buffer (from device side) is full
+static inline bool outbuf_full()
 {
-    return kbdctl_read_sreg().outbuf_full;
+    return read_sreg().outbuf_full == 1;
 }
 
-// Check if input buffer of the Keyboard controller is full
-static inline bool kbdctl_inbuf_full()
+// Check if the input buffer (from device side) is full
+static inline bool inbuf_full()
 {
-    return kbdctl_read_sreg().inbuf_full;
+    return read_sreg().inbuf_full == 1;
 }
 
-// Write data to the keyboard controller outupt buffer
-static inline void write_data(uint8_t data)
+// Write keyboard controller configuration byte
+static inline void write_cfg_byte(kbdctl_cfg_byte cfg_byte)
 {
-    // Wait until buffer is empty
-    while (kbdctl_inbuf_full())
-        pause();
+    write_cmd(CMD_WRITE_BYTE_0);
+    write_data(cfg_byte.bits);
+}
 
-    outb(PORT_DATA, data);
+// Read keyboard controller configuration byte
+static inline kbdctl_cfg_byte read_cfg_byte()
+{
+    kbdctl_cfg_byte cfg_byte;
+    write_cmd(CMD_READ_BYTE_0);
+    cfg_byte.bits = read_data();
+    return cfg_byte;
+}
+
+// Perform keyboard controller self test
+static inline bool kbdctl_selftest()
+{
+    // Start self test
+    write_cmd(CMD_TEST_KBDCTL);
+
+    // Read result
+    uint8_t result = read_data();
+    return result == RES_SELFTEST_OK;
+}
+
+// Flush the keyboard controller output buffer
+static inline void flush_outbuf()
+{
+    while (outbuf_full())
+        inb(PORT_DATA);
 }
 
 // Write data to PS2 port
@@ -424,34 +468,9 @@ static inline void write_data_port(uint8_t data, kbdctl_port port)
 {
     // Send next byte to port 2
     if (port == PORT_2)
-        kbdctl_send_cmd(CMD_WRITE_PORT2);
+        write_cmd(CMD_WRITE_PORT2);
 
     write_data(data);
-}
-
-// Writes byte to a PS/2 port, handling resends
-// Returns false in case of failure
-static bool write_data_resend(uint8_t byte, kbdctl_port port)
-{
-    uint8_t data, retries = 5;
-    do
-    {
-        // Limit number of retries
-        if (retries == 0)
-            return false;
-
-        // Write byte
-        write_data_port(byte, port);
-
-        // Read first byte from device, that will be
-        //  - 0xFE -> Resend
-        //  - 0xFA -> ACK
-        if (!kbdctl_read_data_timeout(&data, TIMEOUT))
-            return false;
-
-    } while (data == PS2_RESEND);
-
-    return true;
 }
 
 // Reset device connected to a PS2 port, and read the results
@@ -460,25 +479,15 @@ static bool write_data_resend(uint8_t byte, kbdctl_port port)
 // completed succesfully
 static bool device_initialize(device_type *type, kbdctl_port port)
 {
-    // Send reset command
-    if (!write_data_resend(PS2_RESET, port))
+#ifdef DEBUG
+    klog("[KBDCTL] Resetting device %d\n", port);
+#endif
+
+    if (!device_self_test(port))
         return false;
 
-    // Read reset result (2 bytes)
-    uint8_t res;
-    if (!kbdctl_read_data_timeout(&res, TIMEOUT))
-        // No response from the device (device not present)
-        goto fail;
-
-    // Check if device self test was successful
-    if (res != PS2_SELFTEST_OK)
-    {
-        klog("[KBDCTL] Port %d device self test failure: 0x%x\n", port, res);
-        goto fail;
-    }
-
     // Identify device
-    *type = identify_device();
+    *type = device_identify();
     if (*type == UNKNOWN)
         return false;
 
@@ -486,38 +495,106 @@ static bool device_initialize(device_type *type, kbdctl_port port)
          get_device_type_string(*type), port);
 
     return true;
+}
 
-fail:
-    return false;
+// Perform PS/2 device self test
+// Returns false in case of failure
+static bool device_self_test(kbdctl_port port)
+{
+    uint8_t data1, data2, retries = RESEND_RETRIES;
+
+    // Send reset command, handling resends
+    do
+    {
+        // Limit number of resends
+        if (retries == 0)
+        {
+#ifdef DEBUG
+            klog("[KBDCTL] Port %d device self test failure: retries exceeded\n", port);
+#endif
+            return false;
+        }
+
+        // Write reset byte
+        write_data_port(PS2_RESET, port);
+
+        // Read first byte from device, that will be
+        //  - 0xFE -> Resend
+        //  - 0xFA -> ACK
+        //  - 0xAA -> Self-test OK
+        // 0xFA and 0xAA will be sent in different order based on the
+        // controller. Because why the hell not.
+        if (!read_data_timeout(&data1, POST_TIMEOUT))
+        {
+#ifdef DEBUG
+            klog("[KBDCTL] Port %d device self test failure: no response\n", port);
+#endif
+            return false;
+        }
+        retries--;
+
+    } while (data1 == PS2_RESEND);
+
+    // Consume other byte of the 0xFA, 0xAA sequence
+    if (!read_data_timeout(&data2, POST_TIMEOUT))
+    {
+#ifdef DEBUG
+        klog("[KBDCTL] Port %d device self test failure: no response\n", port);
+#endif
+        return false;
+    }
+
+    // Handle different orders
+    if ((!(data1 == PS2_ACK && data2 == PS2_SELFTEST_OK) &&
+         !(data1 == PS2_SELFTEST_OK && data2 == PS2_ACK)))
+    {
+        klog("[KBDCTL] Port %d device self test failure: 0x%x%x\n", port, data1, data2);
+        return false;
+    }
+
+    return true;
 }
 
 // Identifies device as part of its initialization process
-static device_type identify_device()
+static device_type device_identify()
 {
     uint8_t data;
-    if (!kbdctl_read_data_timeout(&data, TIMEOUT))
+    if (!read_data_timeout(&data, TIMEOUT))
     {
         //  AT Keyboards don't send ID bytes
         return KEYBOARD;
     }
 
+#ifdef DEBUG
+    klog("[KBDCTL] ID byte 0: 0x%x\n", data);
+#endif
+
     // Mice send only one byte
     if (data == 0x00 || data == 0x03 || data == 0x04)
         return MOUSE;
 
-    if (data == 0xAB)
+    //     if (data == 0xAB || data == 0xF0 || data == 0xF2)
+    //     {
+    //         // Read second byte that some keyboards send
+    //         if (read_data_timeout(&data, TIMEOUT))
+    //         {
+
+    // #ifdef DEBUG
+    //             klog("[KBDCTL] ID byte 1: 0x%x\n", data);
+    // #endif
+    //         };
+
+    //         return KEYBOARD;
+    //     }
+
+    if (read_data_timeout(&data, TIMEOUT))
     {
-        if (!kbdctl_read_data_timeout(&data, TIMEOUT))
-        {
-            // Keyboads send two bytes, if no second byte is received
-            // the device can't be identified
-            return UNKNOWN;
-        }
+#ifdef DEBUG
+        klog("[KBDCTL] ID byte 1: 0x%x\n", data);
+#endif
+    };
 
-        return KEYBOARD;
-    }
-
-    return UNKNOWN;
+    return KEYBOARD;
 }
 
 static char *get_device_type_string(device_type type)
@@ -545,36 +622,80 @@ static void write_data_port_2(uint8_t data)
 
 static void enable_port_1()
 {
-    kbdctl_send_cmd(CMD_ENABLE_PORT1);
+    // kbdctl_cfg_byte cfg_byte = kbdctl_read_cfg_byte();
+    // cfg_byte.port1_clock_dis = 0;
+    // cfg_byte.port1_irq_en = 1;
+    // kbdctl_write_cfg_byte(cfg_byte);
+    write_cmd(CMD_ENABLE_PORT1);
 }
 
 static void enable_port_2()
 {
-    kbdctl_send_cmd(CMD_ENABLE_PORT2);
+    // kbdctl_cfg_byte cfg_byte = kbdctl_read_cfg_byte();
+    // cfg_byte.port2_clock_dis = 0;
+    // cfg_byte.port2_irq_en = 1;
+    // kbdctl_write_cfg_byte(cfg_byte);
+    write_cmd(CMD_ENABLE_PORT2);
 }
 
 static void disable_port_1()
 {
-    kbdctl_send_cmd(CMD_DISABLE_PORT1);
+    // kbdctl_cfg_byte cfg_byte = kbdctl_read_cfg_byte();
+    // cfg_byte.port1_clock_dis = 1;
+    // cfg_byte.port1_irq_en = 0;
+    // kbdctl_write_cfg_byte(cfg_byte);
+    write_cmd(CMD_DISABLE_PORT1);
 }
 
 static void disable_port_2()
 {
-    kbdctl_send_cmd(CMD_DISABLE_PORT2);
+    // kbdctl_cfg_byte cfg_byte = kbdctl_read_cfg_byte();
+    // cfg_byte.port2_clock_dis = 1;
+    // cfg_byte.port2_irq_en = 0;
+    // kbdctl_write_cfg_byte(cfg_byte);
+    write_cmd(CMD_DISABLE_PORT2);
 }
 
 // IRQ handler for PS2 port 1
 static void kbdctl_irq_port1()
 {
-    uint8_t data;
-    if (kbdctl_read_data_noblock(&data))
+#ifdef DEBUG
+    klog("[KBDCTL] Port 1 IRQ: ");
+#endif
+    uint8_t data = 0;
+    if (read_data_noblock(&data))
+    {
+#ifdef DEBUG
+        klog("data = 0x%x\n", data);
+#endif
         port_1_driver.got_data_callback(data);
+    }
+#ifdef DEBUG
+    else
+    {
+        klog("no data\n", data);
+    }
+#endif
 }
 
 // IRQ handler for PS2 port 2
 static void kbdctl_irq_port2()
 {
-    uint8_t data;
-    if (kbdctl_read_data_noblock(&data))
+#ifdef DEBUG
+    klog("[KBDCTL] Port 2 IRQ: ");
+#endif
+    uint8_t data = 0;
+    if (read_data_noblock(&data))
+    {
+#ifdef DEBUG
+        klog("data = 0x%x\n", data);
+#endif
         port_2_driver.got_data_callback(data);
+    }
+#ifdef DEBUG
+    else
+    {
+        klog("no data\n", data);
+    }
+#endif
 }
