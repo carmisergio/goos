@@ -9,7 +9,7 @@
 #include "cpu.h"
 #include "int/interrupts.h"
 #include "drivers/ps2.h"
-#include "drivers/ps2kbd.h"
+#include "drivers/ps2kbd/ps2kbd.h"
 
 #define DEBUG 1
 
@@ -471,6 +471,10 @@ static inline void write_data_port(uint8_t data, kbdctl_port port)
         write_cmd(CMD_WRITE_PORT2);
 
     write_data(data);
+
+#ifdef DEBUG
+    klog("[KBDCTL] writing to port %d : data = 0x%x\n", port, data);
+#endif
 }
 
 // Reset device connected to a PS2 port, and read the results

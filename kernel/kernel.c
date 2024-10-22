@@ -14,7 +14,6 @@
 #include "int/interrupts.h"
 #include "drivers/pit.h"
 #include "drivers/kbdctl.h"
-#include "drivers/ps2kbd.h"
 #include "clock.h"
 
 // Boot information structure

@@ -1,4 +1,6 @@
-#include "drivers/ps2kbd.h"
+#include "drivers/ps2kbd/ps2kbd.h"
+
+#include "scancodes.h"
 
 #include "log.h"
 
@@ -17,6 +19,9 @@ typedef struct
 {
     ps2_port port;
     ps2_cmd_ringbuf cmd_buf;
+
+    // Scancode processor state machine
+    bool recv_break, recv_extended;
 } ps2kbd_drv_state;
 
 // PS/2 Scan code sets
@@ -27,8 +32,22 @@ typedef enum
     SCAN_CODE_SET_3 = 3,
 } ps2_scan_code_set;
 
+// PS/2 Led update packet
+typedef union
+{
+    uint8_t bits;
+    struct __attribute__((packed))
+    {
+        bool scrollck : 1;
+        bool numlck : 1;
+        bool capslck : 1;
+    };
+} ps2_led_update_byte;
+
 // Internal functions
-static void got_data_callback(uint8_t data);
+static void
+got_data_callback(uint8_t data);
+static void process_scancode(uint8_t sc);
 static void cmd_ringbuf_init(ps2_cmd_ringbuf *buf);
 static bool cmd_ringbuf_is_empty(ps2_cmd_ringbuf *buf);
 static bool cmd_ringbuf_is_full(ps2_cmd_ringbuf *buf);
@@ -41,6 +60,8 @@ static void write_cmd(ps2_port *port, uint8_t cmd);
 static void enable_scanning(ps2kbd_drv_state *drv_state);
 static void select_scan_code_set(ps2kbd_drv_state *drv_state,
                                  ps2_scan_code_set scan_code_set);
+static void update_leds(ps2kbd_drv_state *drv_state,
+                        bool scrollck, bool numlck, bool capslck);
 
 // Driver state
 bool initialized = false;
@@ -58,6 +79,8 @@ bool ps2kbd_init(ps2_callbacks *callbacks, ps2_port port)
     // Initialize driver state
     cmd_ringbuf_init(&drv_state.cmd_buf);
     drv_state.port = port;
+    drv_state.recv_break = false;
+    drv_state.recv_extended = false;
 
     // Set callback for receiving data
     callbacks->got_data_callback = &got_data_callback;
@@ -66,6 +89,7 @@ bool ps2kbd_init(ps2_callbacks *callbacks, ps2_port port)
     port.enable();
 
     // Set up keyboard
+    update_leds(&drv_state, true, true, true);
     enable_scanning(&drv_state);
     select_scan_code_set(&drv_state, SCAN_CODE_SET_2);
 
@@ -75,8 +99,6 @@ bool ps2kbd_init(ps2_callbacks *callbacks, ps2_port port)
 // Data received from the PS2/ port
 static void got_data_callback(uint8_t data)
 {
-    klog("Got data: %x\n", data);
-
     // Handle special bytes
     switch (data)
     {
@@ -103,7 +125,48 @@ static void got_data_callback(uint8_t data)
         return;
     }
 
-    klog("Processing scancode: %x\n", data);
+    // Normal Scan Code
+    process_scancode(data);
+}
+
+// Process scancode from keybaord
+//
+// Params:
+//   - sc: scancode
+static void process_scancode(uint8_t sc)
+{
+
+    switch (sc)
+    {
+    case SC_BREAK:
+        // Sequence is a break sequence
+        drv_state.recv_break = true;
+        return;
+    case SC_EXTENDED:
+        // Sequence is a break sequence
+        drv_state.recv_extended = true;
+        return;
+    }
+
+    // Normal scancode
+
+    // Process scancode through scancode tables
+    keycode_t keycode;
+    if (!drv_state.recv_extended)
+        keycode = scantab_normal[sc];
+    else
+        keycode = scantab_extended[sc];
+
+    // Ignore keys marked as ignore in the scancode tables
+    if (keycode == KEYCODE_NULL)
+        goto done;
+
+    klog("%s %x\n", drv_state.recv_break ? "Break" : "Make", keycode);
+
+done:
+    // Reset driver state
+    drv_state.recv_break = false;
+    drv_state.recv_extended = false;
 }
 
 // Initialize PS/2 command ring buffer
@@ -232,10 +295,26 @@ static void enable_scanning(ps2kbd_drv_state *drv_state)
     send_cmd(drv_state, 0xF4);
 }
 
-// Select scan code se t
+// Select scan code set
 static void select_scan_code_set(ps2kbd_drv_state *drv_state,
                                  ps2_scan_code_set scan_code_set)
 {
     send_cmd(drv_state, 0xF0);
     send_cmd(drv_state, scan_code_set);
+}
+
+// Set LEDs state
+static void update_leds(ps2kbd_drv_state *drv_state,
+                        bool scrollck, bool numlck, bool capslck)
+{
+
+    ps2_led_update_byte data = {.scrollck = scrollck,
+                                .numlck = numlck,
+                                .capslck = capslck};
+    klog("LED Data: %x\n", data.bits);
+    // send_cmd(drv_state, 0xF5);
+    send_cmd(drv_state, 0xF5);
+    send_cmd(drv_state, 0xED);
+    send_cmd(drv_state, data.bits);
+    send_cmd(drv_state, 0xF4);
 }
