@@ -11,7 +11,7 @@
 #include "drivers/ps2.h"
 #include "drivers/ps2kbd/ps2kbd.h"
 
-#define DEBUG 1
+// #define DEBUG 1
 
 // Hardware specifications
 #define PORT_DATA 0x60

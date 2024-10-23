@@ -5,8 +5,8 @@
 
 #include "kbd/kbd.h"
 
-// NULL keycode
-#define IGNR KEYCODE_NULL
+// NULL poscode
+#define IGNR KC_NULL
 
 // Special Scancodes
 #define SC_EXTENDED 0xE0 // Scancode is in the extended table
@@ -24,7 +24,7 @@
 */
 
 // Normal scancodes
-const keycode_t scantab_normal[] = {
+static const kbd_keycode_t scantab_normal[] = {
 /*       0     1     2     3     4     5     6     7     8     9     A     B     C     D     E     F */
 /* 0 */ IGNR, 0x0A, IGNR, 0x06, 0x04, 0x02, 0x03, 0x0D, IGNR, 0x0B, 0x09, 0x07, 0x05, 0x1C, 0x0E, IGNR,
 /* 1 */ IGNR, 0x46, 0x37, IGNR, 0x44, 0x1D, 0x0F, IGNR, IGNR, IGNR, 0x39, 0x2C, 0x2B, 0x1E, 0x10, IGNR,
@@ -45,7 +45,7 @@ const keycode_t scantab_normal[] = {
 };
 
 // Extended scancodes (beginning with E0)
-const keycode_t scantab_extended[] = {
+static const kbd_keycode_t scantab_extended[] = {
 /*       0     1     2     3     4     5     6     7     8     9     A     B     C     D     E     F */
 /* 0 */ IGNR, IGNR, IGNR, IGNR, IGNR, IGNR, IGNR, IGNR, IGNR, IGNR, IGNR, IGNR, IGNR, IGNR, IGNR, IGNR,
 /* 1 */ IGNR, 0x48, IGNR, IGNR, 0x4B, IGNR, IGNR, IGNR, IGNR, IGNR, IGNR, IGNR, IGNR, IGNR, IGNR, 0x45,

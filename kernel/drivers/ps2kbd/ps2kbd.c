@@ -1,10 +1,13 @@
 #include "drivers/ps2kbd/ps2kbd.h"
-
 #include "scancodes.h"
 
+#include <stdint.h>
+
+#include "kbd/kbd.h"
 #include "log.h"
 
 #define CMD_RINGBUF_N 16
+#define MAX_RESEND 5
 
 // PS/2 command ring buffer
 typedef uint8_t ps2_cmd_ringbuf_ptr;
@@ -19,6 +22,7 @@ typedef struct
 {
     ps2_port port;
     ps2_cmd_ringbuf cmd_buf;
+    uint16_t resend_c; // Resend counter
 
     // Scancode processor state machine
     bool recv_break, recv_extended;
@@ -61,8 +65,8 @@ static void enable_scanning(ps2kbd_drv_state *drv_state);
 static void select_scan_code_set(ps2kbd_drv_state *drv_state,
                                  ps2_scan_code_set scan_code_set);
 static void update_leds(ps2kbd_drv_state *drv_state,
-                        bool scrollck, bool numlck, bool capslck);
-
+                        kbd_led_states_t led_states);
+static void led_update_recv(kbd_led_states_t states);
 // Driver state
 bool initialized = false;
 ps2kbd_drv_state drv_state;
@@ -81,6 +85,7 @@ bool ps2kbd_init(ps2_callbacks *callbacks, ps2_port port)
     drv_state.port = port;
     drv_state.recv_break = false;
     drv_state.recv_extended = false;
+    drv_state.resend_c = 0;
 
     // Set callback for receiving data
     callbacks->got_data_callback = &got_data_callback;
@@ -89,9 +94,12 @@ bool ps2kbd_init(ps2_callbacks *callbacks, ps2_port port)
     port.enable();
 
     // Set up keyboard
-    update_leds(&drv_state, true, true, true);
     enable_scanning(&drv_state);
     select_scan_code_set(&drv_state, SCAN_CODE_SET_2);
+    update_leds(&drv_state, kbd_get_led_states());
+
+    // Register LED update receiver
+    kbd_register_led_update_recv(led_update_recv);
 
     return true;
 }
@@ -119,6 +127,20 @@ static void got_data_callback(uint8_t data)
             write_cmd(&drv_state.port, cmd_ringbuf_peek(&drv_state.cmd_buf));
         return;
     case 0xFE: // Resend
+        if (drv_state.resend_c >= MAX_RESEND)
+        {
+            cmd_ringbuf_delete_first(&drv_state.cmd_buf);
+            drv_state.resend_c = 0;
+
+            // Send next command
+            if (!cmd_ringbuf_is_empty(&drv_state.cmd_buf))
+                write_cmd(&drv_state.port, cmd_ringbuf_peek(&drv_state.cmd_buf));
+
+            return;
+        }
+
+        drv_state.resend_c++;
+
         // Send last command to ring buffer
         if (!cmd_ringbuf_is_empty(&drv_state.cmd_buf))
             write_cmd(&drv_state.port, cmd_ringbuf_peek(&drv_state.cmd_buf));
@@ -151,17 +173,19 @@ static void process_scancode(uint8_t sc)
     // Normal scancode
 
     // Process scancode through scancode tables
-    keycode_t keycode;
+    kbd_keycode_t kc;
     if (!drv_state.recv_extended)
-        keycode = scantab_normal[sc];
+        kc = scantab_normal[sc];
     else
-        keycode = scantab_extended[sc];
+        kc = scantab_extended[sc];
 
     // Ignore keys marked as ignore in the scancode tables
-    if (keycode == KEYCODE_NULL)
+    if (kc == KC_NULL)
         goto done;
 
-    klog("%s %x\n", drv_state.recv_break ? "Break" : "Make", keycode);
+    // Send event to keyboard subsystem for processing
+    kbd_key_event_t e = {.kc = kc, .make = !drv_state.recv_break};
+    kbd_process_key_event(e);
 
 done:
     // Reset driver state
@@ -223,7 +247,7 @@ static ps2_cmd_ringbuf_ptr cmd_ringbuf_next_ptr_val(ps2_cmd_ringbuf_ptr prev)
 static void cmd_ringbuf_write(ps2_cmd_ringbuf *buf, uint8_t data)
 {
     // Write data
-    buf->data[buf->writeptr] = data;
+    buf->data[buf->writeptr % CMD_RINGBUF_N] = data;
 
     // Increment write pointer
     buf->writeptr = cmd_ringbuf_next_ptr_val(buf->writeptr);
@@ -239,7 +263,7 @@ static void cmd_ringbuf_write(ps2_cmd_ringbuf *buf, uint8_t data)
 static uint8_t cmd_ringbuf_peek(ps2_cmd_ringbuf *buf)
 {
     // Read data
-    uint8_t data = buf->data[buf->readptr];
+    uint8_t data = buf->data[buf->readptr % CMD_RINGBUF_N];
 
     return data;
 }
@@ -272,11 +296,13 @@ static void send_cmd(ps2kbd_drv_state *dvr_state, uint8_t cmd)
 
     // Insert command in ring buffer
     if (!cmd_ringbuf_is_full(&dvr_state->cmd_buf))
+    {
         cmd_ringbuf_write(&dvr_state->cmd_buf, cmd);
 
-    // If buffer is empty, send command now
-    if (empty)
-        write_cmd(&dvr_state->port, cmd);
+        // If buffer is empty, send command now
+        if (empty)
+            write_cmd(&dvr_state->port, cmd);
+    }
 }
 
 // Write PS/2 command to port immediately
@@ -305,16 +331,20 @@ static void select_scan_code_set(ps2kbd_drv_state *drv_state,
 
 // Set LEDs state
 static void update_leds(ps2kbd_drv_state *drv_state,
-                        bool scrollck, bool numlck, bool capslck)
+                        kbd_led_states_t led_states)
 {
 
-    ps2_led_update_byte data = {.scrollck = scrollck,
-                                .numlck = numlck,
-                                .capslck = capslck};
-    klog("LED Data: %x\n", data.bits);
+    ps2_led_update_byte data = {.scrollck = led_states.scrllck,
+                                .numlck = led_states.numlck,
+                                .capslck = led_states.capslck};
+
     // send_cmd(drv_state, 0xF5);
-    send_cmd(drv_state, 0xF5);
     send_cmd(drv_state, 0xED);
     send_cmd(drv_state, data.bits);
-    send_cmd(drv_state, 0xF4);
+}
+
+// Receives LED state updates form the keyboard subsystem
+static void led_update_recv(kbd_led_states_t states)
+{
+    update_leds(&drv_state, states);
 }

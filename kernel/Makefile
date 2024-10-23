@@ -40,7 +40,9 @@ drivers/vga.o \
 drivers/pic.o \
 drivers/pit.o \
 drivers/kbdctl.o \
-drivers/ps2kbd/ps2kbd.o 
+drivers/ps2kbd/ps2kbd.o \
+kbd/kbd.o \
+kbd/keymaps/us_qwerty.o
 
 KLIBC_OBJS =\
 klibc/string.o \

@@ -15,6 +15,7 @@
 #include "drivers/pit.h"
 #include "drivers/kbdctl.h"
 #include "clock.h"
+#include "kbd/kbd.h"
 
 // Boot information structure
 boot_info_t boot_info;
@@ -34,6 +35,9 @@ void kmain(multiboot_info_t *mbd)
 
     // Initialize interrupts
     interrupts_init();
+
+    // Initialize subsystems
+    kbd_init();
 
     // Initialize drivers
     clock_init();

@@ -16,7 +16,8 @@
     "interrupts.h": "c",
     "pit.h": "c",
     "kbdctl.h": "c",
-    "scancodes.h": "c"
+    "scancodes.h": "c",
+    "ps2kbd.h": "c"
   },
   "C_Cpp.default.compilerPath": "/usr/bin/gcc"
 }
