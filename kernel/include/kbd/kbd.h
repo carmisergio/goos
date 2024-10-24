@@ -28,10 +28,12 @@ typedef struct
 // State of the modifier keys
 typedef struct
 {
+    bool shift;
     bool ctrl;
     bool alt;
     bool super;
     bool scrllck;
+    bool altgr;
 
 } kbd_mod_state_t;
 
@@ -45,7 +47,7 @@ typedef struct
 // Keyboard Event
 typedef struct
 {
-    kbd_keycode_t code;
+    kbd_keysym_t keysym;
     kbd_mod_state_t mod;
 } kbd_event_t;
 

@@ -54,6 +54,7 @@ static bool is_softres(srmmap_entry_t *srmmap, uint32_t srmmap_n, uint32_t addr)
 static void initialize_bitmap(srmmap_entry_t *srmmap, uint32_t srmmap_n);
 static inline bool is_page_free(uint32_t page);
 static inline void mark_page_free(uint32_t page);
+static inline void mark_page_free_nockeck(uint32_t page);
 static inline void mark_page_used(uint32_t page);
 
 /* Public functions */
@@ -304,7 +305,7 @@ static void initialize_bitmap(srmmap_entry_t *srmmap, uint32_t srmmap_n)
         if (is_physmem(page * MEM_PAGE_SIZE) &&
             !is_softres(srmmap, srmmap_n, page * MEM_PAGE_SIZE))
         {
-            mark_page_free(page);
+            mark_page_free_nockeck(page);
         }
     }
 }
@@ -325,6 +326,17 @@ static inline void mark_page_free(uint32_t page)
     if (is_page_free(page))
         panic("PHYSMEM_DOUBLE_FREE_INT", "Can't free a page that is already free");
 
+    // Free page
+    physmem_bitmap[page / 8] |= (1 << (page % 8));
+    physmem_free_pages++; // Count free pages
+
+    // Set first free page
+    if (page > physmem_first_free_page)
+        physmem_first_free_page = page;
+}
+
+static inline void mark_page_free_nockeck(uint32_t page)
+{
     // Free page
     physmem_bitmap[page / 8] |= (1 << (page % 8));
     physmem_free_pages++; // Count free pages

@@ -6,7 +6,7 @@
 #include "kbd/kbd.h"
 
 // NULL poscode
-#define IGNR KC_NULL
+#define IGNR KC_IGNR
 
 // Special Scancodes
 #define SC_EXTENDED 0xE0 // Scancode is in the extended table

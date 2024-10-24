@@ -180,7 +180,7 @@ static void process_scancode(uint8_t sc)
         kc = scantab_extended[sc];
 
     // Ignore keys marked as ignore in the scancode tables
-    if (kc == KC_NULL)
+    if (kc == KC_IGNR || kc == KC_NULL)
         goto done;
 
     // Send event to keyboard subsystem for processing

@@ -16,9 +16,15 @@
 #include "drivers/kbdctl.h"
 #include "clock.h"
 #include "kbd/kbd.h"
+#include "sysreq.h"
 
 // Boot information structure
 boot_info_t boot_info;
+
+void kbd_handler(kbd_event_t e)
+{
+    klog("Keyboard event: %x\n", e.keysym);
+}
 
 /*
  * Main kernel entry point
@@ -42,8 +48,11 @@ void kmain(multiboot_info_t *mbd)
     // Initialize drivers
     clock_init();
     kbdctl_init();
+    sysreq_init();
 
     klog("BOOTED!\n");
+
+    kbd_register_kbd_event_recv(kbd_handler);
 
     for (;;)
     {

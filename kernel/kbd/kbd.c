@@ -8,7 +8,9 @@
 #include "panic.h"
 #include "log.h"
 
-#define DEBUG 1
+#include "clock.h"
+
+// #define DEBUG 1
 
 // Configuration variables
 #define SCRLLCK_INIT false
@@ -16,6 +18,7 @@
 #define CAPSLCK_INIT false
 #define MAX_LED_UPDATE_RECV 5
 #define MAX_KBD_EVENT_RECV 5
+#define DEFAULT_KEYMAP kbd_keymap_us_qwerty
 
 #define RECV_UNUSED 0
 #define KEYSTATE_BITMAP_N 256 / 8 // 8 bits in a byte
@@ -37,8 +40,6 @@ static inline void keystate_bitamp_set(kbd_keycode_t kc);
 static inline void keystate_bitamp_clear(kbd_keycode_t kc);
 static inline bool keystate_bitamp_get(kbd_keycode_t kc);
 static kbd_mod_state_t compute_mod_states();
-static bool get_shift_state();
-static bool get_altgr_state();
 static void process_keycode(kbd_keycode_t kc);
 
 // Global objects
@@ -67,19 +68,28 @@ void kbd_init()
         kbd_event_recv[i] = RECV_UNUSED;
 
     // Set  keymap
-    cur_keymap = kbd_keymap_us_qwerty;
+    cur_keymap = DEFAULT_KEYMAP;
 }
 
 void kbd_process_key_event(kbd_key_event_t e)
 {
 #ifdef DEBUG
-    // klog("[KBD] Key event: %s %x\n", e.make ? "Make" : "Break", e.kc);
+    klog("[KBD] Key event: %s %x\n", e.make ? "Make" : "Break", e.kc);
 #endif
+
+    // Ignore null and ignored keys
+    if (e.kc == KC_IGNR || e.kc == KC_NULL)
+        return;
 
     // Apply patch table (if present)
     uint8_t kc = e.kc;
-    if (cur_keymap.patch_map != KEYMAP_UNUSED)
+    if (cur_keymap.patch_map != KEYMAP_UNUSED &&
+        cur_keymap.patch_map[kc] != KC_NULL)
         kc = cur_keymap.patch_map[kc];
+
+    // Ignore null and ignored keys
+    if (e.kc == KC_IGNR || e.kc == KC_NULL)
+        return;
 
     // Update keystate bitmap
     if (e.make)
@@ -204,9 +214,9 @@ static void send_led_update()
     }
 }
 
-// Send LED update to registered receivers
+// Send Keyboard event to listeners
 // Params:
-//   - led_states: Current LED states
+//   - e: Keyboard event
 static void send_kbd_event(kbd_event_t e)
 {
     // Call receivers
@@ -248,25 +258,14 @@ static kbd_mod_state_t compute_mod_states()
 {
     kbd_mod_state_t res;
 
+    res.shift = keystate_bitamp_get(KC_LSHIFT) | keystate_bitamp_get(KC_RSHIFT);
     res.ctrl = keystate_bitamp_get(KC_LCTRL) | keystate_bitamp_get(KC_RCTRL);
     res.alt = keystate_bitamp_get(KC_LALT) | keystate_bitamp_get(KC_RALT);
     res.super = keystate_bitamp_get(KC_LSUPER) | keystate_bitamp_get(KC_RSUPER);
+    res.altgr = keystate_bitamp_get(KC_ALTGR);
+    res.scrllck = latching_mods.scrllck;
 
     return res;
-}
-
-// Compute current shift key state
-// Returns: true if shift is pressed
-static bool get_shift_state()
-{
-    return keystate_bitamp_get(KC_LSHIFT) || keystate_bitamp_get(KC_RSHIFT);
-}
-
-// Compute current altgr key state
-// Returns: true if altgr is pressed
-static bool get_altgr_state()
-{
-    return keystate_bitamp_get(KC_ALTGR);
 }
 
 // Process clean keycode after the patch map and latching modifier
@@ -274,6 +273,9 @@ static bool get_altgr_state()
 static void process_keycode(kbd_keycode_t kc)
 {
     kbd_keysym_t ks;
+
+    // Get modifier states
+    kbd_mod_state_t mods = compute_mod_states();
 
     // Apply normal map
     ks = cur_keymap.normal_map[kc];
@@ -284,22 +286,27 @@ static void process_keycode(kbd_keycode_t kc)
         ks = cur_keymap.numlock_map[kc];
 
     // Apply shift map
-    if (get_shift_state() && cur_keymap.shift_map != KEYMAP_UNUSED &&
+    if (mods.shift && cur_keymap.shift_map != KEYMAP_UNUSED &&
         cur_keymap.shift_map[kc] != KS_NULL)
         ks = cur_keymap.shift_map[kc];
 
     // Apply caps map
     if (latching_mods.capslck && cur_keymap.caps_map != KEYMAP_UNUSED &&
-        cur_keymap.caps_map[kc] != KS_NULL)
+        cur_keymap.caps_map[ks] != KS_NULL)
         ks = cur_keymap.caps_map[ks];
 
     // Apply altgr map
-    if (get_altgr_state() && cur_keymap.altgr_map != KEYMAP_UNUSED &&
-        cur_keymap.altgr_map[kc] != KS_NULL)
+    if (mods.altgr && cur_keymap.altgr_map != KEYMAP_UNUSED &&
+        cur_keymap.altgr_map[ks] != KS_NULL)
         ks = cur_keymap.altgr_map[ks];
 
     if (ks == 0)
         return;
 
-    klog("Keysym: 0x%02x\n", ks);
+    kbd_event_t event = {
+        .keysym = ks,
+        .mod = mods,
+    };
+
+    send_kbd_event(event);
 }

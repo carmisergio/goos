@@ -48,6 +48,9 @@
  * ## Caps Map
  * Eg. kbd_keysym_t shift_map[256];
  * Like Caps Map, but active only when AltGr is active
+ *
+ * Note: in all maps, values not set are automatically set to KS_NULL
+ *       by the compiler
  */
 
 // Keymap interface

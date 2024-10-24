@@ -17,7 +17,8 @@
     "pit.h": "c",
     "kbdctl.h": "c",
     "scancodes.h": "c",
-    "ps2kbd.h": "c"
+    "ps2kbd.h": "c",
+    "keymap.h": "c"
   },
   "C_Cpp.default.compilerPath": "/usr/bin/gcc"
 }

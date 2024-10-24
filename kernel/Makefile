@@ -25,6 +25,7 @@ kernel.o \
 log.o \
 panic.o \
 clock.o \
+sysreq.o \
 mem/mem.o \
 mem/vmem.o \
 mem/physmem.o \

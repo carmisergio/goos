@@ -1,8 +1,12 @@
 #ifndef _KBD_CODES_H
 #define _KBD_CODES_H 1
 
+#define N_KEYCODES 256
+#define N_KEYSYMS 256
+
 // Reserved keycodes
 #define KC_NULL 0x00
+#define KC_IGNR 0xFF
 
 // Modifier keycodes
 #define KC_CAPSLCK 0x2A
@@ -20,137 +24,142 @@
 
 //////// Keysyms
 
-#define KS_NULL 0x00
+typedef enum
+{
+    KS_NULL = 0x00,
 
-// Function keys
-#define KS_ESC 0x01
-#define KS_F1 0x02
-#define KS_F2 0x03
-#define KS_F3 0x04
-#define KS_F4 0x05
-#define KS_F5 0x06
-#define KS_F6 0x07
-#define KS_F7 0x08
-#define KS_F8 0x09
-#define KS_F9 0x0A
-#define KS_F10 0x0B
-#define KS_F11 0x0C
-#define KS_F12 0x0D
+    // Function keys
+    KS_ESC = 0x01,
+    KS_F1 = 0x02,
+    KS_F2 = 0x03,
+    KS_F3 = 0x04,
+    KS_F4 = 0x05,
+    KS_F5 = 0x06,
+    KS_F6 = 0x07,
+    KS_F7 = 0x08,
+    KS_F8 = 0x09,
+    KS_F9 = 0x0A,
+    KS_F10 = 0x0B,
+    KS_F11 = 0x0C,
+    KS_F12 = 0x0D,
 
-// Alphanumeric
-#define KS_a 0x0E
-#define KS_b 0x0F
-#define KS_c 0x10
-#define KS_d 0x11
-#define KS_e 0x12
-#define KS_f 0x14
-#define KS_g 0x15
-#define KS_h 0x16
-#define KS_i 0x17
-#define KS_j 0x18
-#define KS_k 0x19
-#define KS_l 0x1A
-#define KS_m 0x1B
-#define KS_n 0x1C
-#define KS_o 0x1D
-#define KS_p 0x1E
-#define KS_q 0x1F
-#define KS_r 0x20
-#define KS_s 0x21
-#define KS_t 0x22
-#define KS_u 0x23
-#define KS_v 0x24
-#define KS_w 0x25
-#define KS_x 0x26
-#define KS_y 0x27
-#define KS_z 0x28
-#define KS_A 0x29
-#define KS_B 0x2A
-#define KS_C 0x2B
-#define KS_D 0x2C
-#define KS_E 0x2D
-#define KS_F 0x2E
-#define KS_G 0x2F
-#define KS_H 0x30
-#define KS_I 0x31
-#define KS_J 0x32
-#define KS_K 0x33
-#define KS_L 0x34
-#define KS_M 0x35
-#define KS_N 0x36
-#define KS_O 0x37
-#define KS_P 0x38
-#define KS_Q 0x39
-#define KS_R 0x3A
-#define KS_S 0x3B
-#define KS_T 0x3C
-#define KS_U 0x3D
-#define KS_V 0x3E
-#define KS_W 0x3F
-#define KS_X 0x40
-#define KS_Y 0x41
-#define KS_Z 0x42
-#define KS_0 0x43
-#define KS_1 0x44
-#define KS_2 0x45
-#define KS_3 0x46
-#define KS_4 0x47
-#define KS_5 0x48
-#define KS_6 0x49
-#define KS_7 0x4A
-#define KS_8 0x4B
-#define KS_9 0x4C
+    // Alphanumeric
+    KS_a = 0x0E,
+    KS_b = 0x0F,
+    KS_c = 0x10,
+    KS_d = 0x11,
+    KS_e = 0x12,
+    KS_f = 0x14,
+    KS_g = 0x15,
+    KS_h = 0x16,
+    KS_i = 0x17,
+    KS_j = 0x18,
+    KS_k = 0x19,
+    KS_l = 0x1A,
+    KS_m = 0x1B,
+    KS_n = 0x1C,
+    KS_o = 0x1D,
+    KS_p = 0x1E,
+    KS_q = 0x1F,
+    KS_r = 0x20,
+    KS_s = 0x21,
+    KS_t = 0x22,
+    KS_u = 0x23,
+    KS_v = 0x24,
+    KS_w = 0x25,
+    KS_x = 0x26,
+    KS_y = 0x27,
+    KS_z = 0x28,
+    KS_A = 0x29,
+    KS_B = 0x2A,
+    KS_C = 0x2B,
+    KS_D = 0x2C,
+    KS_E = 0x2D,
+    KS_F = 0x2E,
+    KS_G = 0x2F,
+    KS_H = 0x30,
+    KS_I = 0x31,
+    KS_J = 0x32,
+    KS_K = 0x33,
+    KS_L = 0x34,
+    KS_M = 0x35,
+    KS_N = 0x36,
+    KS_O = 0x37,
+    KS_P = 0x38,
+    KS_Q = 0x39,
+    KS_R = 0x3A,
+    KS_S = 0x3B,
+    KS_T = 0x3C,
+    KS_U = 0x3D,
+    KS_V = 0x3E,
+    KS_W = 0x3F,
+    KS_X = 0x40,
+    KS_Y = 0x41,
+    KS_Z = 0x42,
+    KS_0 = 0x43,
+    KS_1 = 0x44,
+    KS_2 = 0x45,
+    KS_3 = 0x46,
+    KS_4 = 0x47,
+    KS_5 = 0x48,
+    KS_6 = 0x49,
+    KS_7 = 0x4A,
+    KS_8 = 0x4B,
+    KS_9 = 0x4C,
 
-// Special characters
-#define KS_SPACE 0x4D
-#define KS_EXCL 0x4E
-#define KS_DBLQT 0x4F
-#define KS_HASHTAG 0x50
-#define KS_DOLLAR 0x51
-#define KS_PERCENT 0x52
-#define KS_AMP 0x53
-#define KS_AND 0x54
-#define KS_SNGLQT 0x55
-#define KS_RBRACOP 0x56
-#define KS_RBRACCL 0x57
-#define KS_ASTRSK 0x58
-#define KS_PLUS 0x59
-#define KS_COMMA 0x5A
-#define KS_DASH 0x5B
-#define KS_PERIOD 0x5C
-#define KS_SLASH 0x5D
-#define KS_COL 0x5E
-#define KS_SMCOL 0x5F
-#define KS_LESSTHAN 0x60
-#define KS_EQUALS 0x61
-#define KS_GRTRTHAN 0x62
-#define KS_QUESTION 0x63
-#define KS_AT 0x64
-#define KS_SBRACOP 0x65
-#define KS_BKSLASH 0x66
-#define KS_SBRACCL 0x67
-#define KS_CARET 0x68
-#define KS_UNDERSCORE 0x69
-#define KS_BKTICK 0x70
-#define KS_CBRACOP 0x71
-#define KS_PIPE 0x72
-#define KS_CBRACCL 0x73
+    // Special characters
+    KS_SPACE = 0x4D,
+    KS_EXCL = 0x4E,
+    KS_DBLQT = 0x4F,
+    KS_HASHTAG = 0x50,
+    KS_DOLLAR = 0x51,
+    KS_PERCENT = 0x52,
+    KS_AMP = 0x53,
+    KS_AND = 0x54,
+    KS_SNGLQT = 0x55,
+    KS_RBRACOP = 0x56,
+    KS_RBRACCL = 0x57,
+    KS_ASTRSK = 0x58,
+    KS_PLUS = 0x59,
+    KS_COMMA = 0x5A,
+    KS_DASH = 0x5B,
+    KS_PERIOD = 0x5C,
+    KS_SLASH = 0x5D,
+    KS_COL = 0x5E,
+    KS_SMCOL = 0x5F,
+    KS_LESSTHAN = 0x60,
+    KS_EQUALS = 0x61,
+    KS_GRTRTHAN = 0x62,
+    KS_QUESTION = 0x63,
+    KS_AT = 0x64,
+    KS_SBRACOP = 0x65,
+    KS_BKSLASH = 0x66,
+    KS_SBRACCL = 0x67,
+    KS_CARET = 0x68,
+    KS_UNDERSCORE = 0x69,
+    KS_BKTICK = 0x70,
+    KS_CBRACOP = 0x71,
+    KS_PIPE = 0x72,
+    KS_CBRACCL = 0x73,
+    KS_TILDE = 0x74,
 
-// Control keys
-#define KS_DEL 0xB0
-#define KS_BACKSPACE 0xB1
-#define KS_ENTER 0xB2
-#define KS_TAB 0xB3
-#define KS_MENU 0xB4
-#define KS_SUPER 0xB5
-#define KS_INSERT 0xB6
-#define KS_HOME 0xB7
-#define KS_END 0xB8
-#define KS_PGUP 0xB9
-#define KS_PGDOWN 0xBA
-#define KS_ARROWUP 0xBB
-#define KS_ARROWDOWN 0xBC
-#define KS_ARROWLEFT 0xBD
-#define KS_ARROWRIGHT 0xBE
+    // Control keys
+    KS_DEL = 0xB0,
+    KS_BACKSPACE = 0xB1,
+    KS_ENTER = 0xB2,
+    KS_TAB = 0xB3,
+    KS_MENU = 0xB4,
+    KS_SUPER = 0xB5,
+    KS_INSERT = 0xB6,
+    KS_HOME = 0xB7,
+    KS_END = 0xB8,
+    KS_PGUP = 0xB9,
+    KS_PGDOWN = 0xBA,
+    KS_ARROWUP = 0xBB,
+    KS_ARROWDOWN = 0xBC,
+    KS_ARROWLEFT = 0xBD,
+    KS_ARROWRIGHT = 0xBE,
+
+} kbd_keysym_code_t;
 
 #endif
