@@ -12,7 +12,7 @@
 
 void mem_init(multiboot_info_t *mbd)
 {
-    klog("Initializing memory management...\n");
+    kdbg("[MEM] Initializing memory management...\n");
 
     // Set current address space to bootstrap address space
     vmem_init(&bootstrap_page_dir);

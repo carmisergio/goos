@@ -26,6 +26,7 @@ log.o \
 panic.o \
 clock.o \
 sysreq.o \
+console.o \
 mem/mem.o \
 mem/vmem.o \
 mem/physmem.o \

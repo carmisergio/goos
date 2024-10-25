@@ -25,7 +25,7 @@ void mb_read_data(multiboot_info_t *mbd_phys)
     multiboot_info_t *mbd;
     multiboot_memory_map_t *mmap;
 
-    klog("Reading multiboot data...\n");
+    kprintf("Reading multiboot data...\n");
 
     // Map multiboot struct in kernel virtual memory
     mbd = vmem_map_range_anyk_noalloc(

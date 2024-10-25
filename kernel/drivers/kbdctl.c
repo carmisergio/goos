@@ -141,7 +141,7 @@ void kbdctl_init()
     use_port_2 = false;
     device_type dev1_type, dev2_type;
 
-    klog("[KBDCTL] Initializing controller...\n");
+    kprintf("[KBDCTL] Initializing controller...\n");
 
     // Disable devices
     write_cmd(CMD_DISABLE_PORT1);
@@ -167,7 +167,7 @@ void kbdctl_init()
     // Controller self test
     if (!kbdctl_selftest())
     {
-        klog("[KBDCTL] Selftest failure!\n");
+        kprintf("[KBDCTL] Selftest failure!\n");
 
         // Exit from driver
         return;
@@ -203,7 +203,7 @@ void kbdctl_init()
     write_cmd(CMD_TEST_PORT1);
     if (read_data() != RES_INT_TEST_OK)
     {
-        klog("[KBDCTL] Port 1 interface test failed!\n");
+        kprintf("[KBDCTL] Port 1 interface test failed!\n");
         // Disable port 1
         use_port_1 = false;
     }
@@ -212,7 +212,7 @@ void kbdctl_init()
         write_cmd(CMD_TEST_PORT2);
         if (read_data() != RES_INT_TEST_OK)
         {
-            klog("[KBDCTL] Port 2 interface test failed!\n");
+            kprintf("[KBDCTL] Port 2 interface test failed!\n");
             // Disable port 2
             use_port_2 = false;
         }
@@ -495,8 +495,8 @@ static bool device_initialize(device_type *type, kbdctl_port port)
     if (*type == UNKNOWN)
         return false;
 
-    klog("[KBDCTL] Detected %s on port %d\n",
-         get_device_type_string(*type), port);
+    kprintf("[KBDCTL] Detected %s on port %d\n",
+            get_device_type_string(*type), port);
 
     return true;
 }
@@ -552,7 +552,7 @@ static bool device_self_test(kbdctl_port port)
     if ((!(data1 == PS2_ACK && data2 == PS2_SELFTEST_OK) &&
          !(data1 == PS2_SELFTEST_OK && data2 == PS2_ACK)))
     {
-        klog("[KBDCTL] Port %d device self test failure: 0x%x%x\n", port, data1, data2);
+        kprintf("[KBDCTL] Port %d device self test failure: 0x%x%x\n", port, data1, data2);
         return false;
     }
 

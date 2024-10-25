@@ -24,18 +24,20 @@ extern "C"
     /*
      * Log to kernel log
      * Uses printf-style formatting
+     * Writes to the debug serial port and the system console
      *
      * Params:
      *    const char* fmt: format string
      *    ...: format values
      * Returns: void
      */
-    void klog(const char *fmt, ...);
+    void kprintf(const char *fmt, ...);
 
     /*
      * Log to kernel log
      * Uses printf-style formatting
      * Prints only to debug serial output
+     * Writes only to the debug serial port
      *
      * Params:
      *    const char* fmt: format string

@@ -2,6 +2,7 @@
 
 #include "kbd/kbd.h"
 #include "drivers/kbdctl.h"
+#include "panic.h"
 
 // Internal functions
 void kbd_event_receiver(kbd_event_t e);
@@ -26,4 +27,10 @@ void kbd_event_receiver(kbd_event_t e)
         e.mod.alt && !e.mod.shift)
         // Hard reset
         kbdctl_reset_cpu();
+
+    // Ctrl + Alt + Backslash
+    if (e.keysym == KS_BKSLASH && e.mod.ctrl &&
+        e.mod.alt && !e.mod.shift)
+        // Trigger kernel panic
+        panic("USER_REQUEST", "User requested kernel panic");
 }

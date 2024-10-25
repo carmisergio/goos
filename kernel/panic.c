@@ -4,6 +4,7 @@
 #include "drivers/vga.h"
 #include "log.h"
 #include "int/interrupts.h"
+#include "console.h"
 
 // Internal function prototypes
 void _panic_halt();
@@ -14,15 +15,17 @@ static inline void _hlt();
 void panic(char *code, char *message)
 {
     // Clear screen
-    vga_setcol(VGA_COLOR_WHITE, VGA_COLOR_RED);
-    vga_clearscreen();
+    console_set_bgcol(CONSOLE_COLOR_RED);
+    console_set_fgcol(CONSOLE_COLOR_WHITE);
+    console_clear();
+    console_set_curspos(0, 0);
 
     // Print message
-    klog("********************************************************************************\n");
-    klog("*                        QUACK! This is a KERNEL PANIC!                        *\n");
-    klog("********************************************************************************\n");
-    klog("Code: %s\n", code);
-    klog("%s\n", message);
+    kprintf("********************************************************************************\n");
+    kprintf("*                        QUACK! This is a KERNEL PANIC!                        *\n");
+    kprintf("********************************************************************************\n");
+    kprintf("Code: %s\n", code);
+    kprintf("%s\n", message);
 
     // Halt processor
     _panic_halt();

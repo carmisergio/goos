@@ -26,7 +26,7 @@ void (*irq_handlers[NUM_IRQ][MAX_IRQ_HANDLERS])(); // Pointers to IRQ handlers
 
 void interrupts_init()
 {
-    klog("[INT] Initializing...\n");
+    kprintf("[INT] Initializing...\n");
 
     // Clear irq_handlers array
     for (size_t i = 0; i < NUM_IRQ; i++)

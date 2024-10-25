@@ -3,6 +3,7 @@
 #include <stddef.h>
 
 #include "log.h"
+#include "console.h"
 #include "mem/mem.h"
 #include "mem/physmem.h"
 #include "mem/vmem.h"
@@ -23,7 +24,7 @@ boot_info_t boot_info;
 
 void kbd_handler(kbd_event_t e)
 {
-    klog("Keyboard event: %x\n", e.keysym);
+    kprintf("Keyboard event: 0x%02x\n", e.keysym);
 }
 
 /*
@@ -33,8 +34,9 @@ void kbd_handler(kbd_event_t e)
 void kmain(multiboot_info_t *mbd)
 {
     // Initialize kernel logging
+    console_init();
     klog_init();
-    klog("GOOS starting...\n");
+    kprintf("GOOS starting...\n");
 
     // Initialize memory management
     mem_init(mbd);
@@ -50,7 +52,7 @@ void kmain(multiboot_info_t *mbd)
     kbdctl_init();
     sysreq_init();
 
-    klog("BOOTED!\n");
+    kprintf("BOOTED!\n");
 
     kbd_register_kbd_event_recv(kbd_handler);
 

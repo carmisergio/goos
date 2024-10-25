@@ -35,11 +35,11 @@ pte_t *cvas_pagetabs;
 
 void vmem_init(pde_t *pagedir)
 {
-    klog("[VMEM] Initializing...\n");
+    kdbg("[VMEM] Initializing...\n");
     // Set current address space page directory pointer
     cvas_pagedir = pagedir;
 
-    klog("Current VAS Page directory: %x\n", cvas_pagedir);
+    kdbg("Current VAS Page directory: %x\n", cvas_pagedir);
 
     // Set the self reference page table mapping pointer
     // This is where the virtual memory manager will find all the
@@ -235,7 +235,7 @@ void *vmem_palloc_k(uint32_t n)
 
 void vmem_log_vaddrspc()
 {
-    klog("Current address space mappings:\n");
+    kdbg("Current address space mappings:\n");
 
     // Iterate over PDEs
     for (size_t i = 0; i < PDE_NUM; i++)
@@ -260,7 +260,7 @@ void vmem_log_vaddrspc()
                     // Get physical address of entry
                     uint32_t paddr = cvas_pagetabs[tabindex] & 0xFFFFF000;
 
-                    klog("  - %x -> %x\n", vaddr, paddr);
+                    kdbg("  - %x -> %x\n", vaddr, paddr);
                 }
             }
         }

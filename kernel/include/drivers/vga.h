@@ -4,72 +4,52 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// VGA color constants
-enum vga_color
-{
-    VGA_COLOR_BLACK = 0,
-    VGA_COLOR_BLUE = 1,
-    VGA_COLOR_GREEN = 2,
-    VGA_COLOR_CYAN = 3,
-    VGA_COLOR_RED = 4,
-    VGA_COLOR_MAGENTA = 5,
-    VGA_COLOR_BROWN = 6,
-    VGA_COLOR_LIGHT_GREY = 7,
-    VGA_COLOR_DARK_GREY = 8,
-    VGA_COLOR_LIGHT_BLUE = 9,
-    VGA_COLOR_LIGHT_GREEN = 10,
-    VGA_COLOR_LIGHT_CYAN = 11,
-    VGA_COLOR_LIGHT_RED = 12,
-    VGA_COLOR_LIGHT_MAGENTA = 13,
-    VGA_COLOR_LIGHT_BROWN = 14,
-    VGA_COLOR_WHITE = 15,
-};
+#include "console.h"
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
+static const size_t VGA_WIDTH = 80;
+static const size_t VGA_HEIGHT = 25;
 
-    /*
-     * Initialize vga driver
-     *
-     * Params: void
-     * Returns: void
-     */
-    void vga_init(void);
+/*
+ * Initialize vga driver
+ *
+ * Params: void
+ * Returns: void
+ */
+void vga_init(void);
 
-    /*
-     * Initialize vga driver functions that require
-     * memory management to be set up
-     * Should be called only AFTER mem_init()
-     */
-    void vga_init_aftermem();
+/*
+ * Initialize vga driver functions that require
+ * memory management to be set up
+ * Should be called only AFTER vmem_init();
+ */
+void vga_init_aftermem();
 
-    /*
-     * Output character to VGA text console
-     *
-     * Params:
-     *     com_port port: port to output to
-     *     char c: character to output to serial
-     * Returns: void
-     */
-    void vga_putchar(char c);
+/*
+ * Output character to VGA at specific position
+ *
+ * Params:
+ *   - c: character to print (CP437 encoding)
+ *    - row, col: position
+ *    - fg, bg: color
+ */
+void vga_putchar(char c, uint16_t row, uint16_t col, console_color_t fg, console_color_t bg);
 
-    /*
-     * Print null terminated string to VGA text console
-     *
-     * Params:
-     *     char *str: string to print
-     * Returns: void
-     */
-    void vga_prtstr(const char *str);
+/*
+ * Clear all characters from the screen, fill with backgorund
+ * color specified
+ *
+ * Params:
+ *   - bg: background color
+ */
+void vga_clearscr(console_color_t bg);
 
-    void vga_setcol(enum vga_color fg, enum vga_color bg);
-
-    void vga_clearscreen();
-
-#ifdef __cplusplus
-}
-#endif
+/*
+ * Scroll all currently visible characters up by one line,
+ * clearing the last line
+ *
+ * Params:
+ *   - bg: background color for the new line
+ */
+void vga_scroll(console_color_t bg);
 
 #endif

@@ -67,7 +67,7 @@ void physmem_init()
 
     uint32_t max_addr, bitmap_paddr;
 
-    klog("[PHYSMEM] Initializing...\n");
+    kprintf("[PHYSMEM] Initializing...\n");
     debug_phys_mmap();
 
     // Mark the kernel load area as software reserved
@@ -76,18 +76,18 @@ void physmem_init()
 
     // Compute maximum physical address
     max_addr = calc_addr_space_size();
-    klog("Maximum physical address: %x\n", max_addr);
+    kprintf("Maximum physical address: %x\n", max_addr);
 
     // Compute number of pages haandled by the bitmap
     physmem_bitmap_pages = max_addr / MEM_PAGE_SIZE;
 
     // Compute size of bitmap in bytes
     uint32_t bitmap_size = PAGE_ALIGN_SIZE(physmem_bitmap_pages / 8); // 8 bits in a byte
-    klog("Bitmap size: %d bytes\n", bitmap_size);
+    kprintf("Bitmap size: %d bytes\n", bitmap_size);
 
     // Find place to put bitmap
     bitmap_paddr = allocate_bitmap(bitmap_size, srmmap, srmmap_n);
-    klog("Bitmap physical addr: %x\n", bitmap_paddr);
+    kprintf("Bitmap physical addr: %x\n", bitmap_paddr);
 
     // Mark bitmap memory as software reserved
     MAKE_SRMMAP_ENTRY(bitmap_paddr, bitmap_size);
@@ -97,14 +97,14 @@ void physmem_init()
     if (physmem_bitmap == NULL)
         panic("PHYSMEM_INIT_BITMAP_MAP_FAIL", "Unable to map bitmap into VAS");
 
-    klog("Bitmap virtual addr: %x\n", physmem_bitmap);
+    kprintf("Bitmap virtual addr: %x\n", physmem_bitmap);
 
     // Initialize bitmap from the physical memory and software reserved maps
     memset(physmem_bitmap, 0x00, physmem_bitmap_pages / 8); // Set bitmap to all zeroes (all reserved)
     initialize_bitmap(srmmap, srmmap_n);
 
-    klog("Free memory: %d KiB\n",
-         physmem_free_pages * MEM_PAGE_SIZE / 1024); // 1024 bytes in a KiB
+    kprintf("Free memory: %d KiB\n",
+            physmem_free_pages * MEM_PAGE_SIZE / 1024); // 1024 bytes in a KiB
 }
 
 void *physmem_alloc()
@@ -191,11 +191,11 @@ bool physmem_is_free(void *addr)
  */
 static void debug_phys_mmap()
 {
-    klog("Available physical memory:\n");
+    kprintf("Available physical memory:\n");
     for (size_t i = 0; i < boot_info.physmmap_n; i++)
     {
-        klog(" - Address: %x, size: %d pages\n",
-             boot_info.physmmap[i].addr, boot_info.physmmap[i].npages);
+        kprintf(" - Address: %x, size: %d pages\n",
+                boot_info.physmmap[i].addr, boot_info.physmmap[i].npages);
     }
 }
 

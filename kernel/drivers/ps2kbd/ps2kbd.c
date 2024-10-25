@@ -78,7 +78,7 @@ bool ps2kbd_init(ps2_callbacks *callbacks, ps2_port port)
         return false;
     initialized = true;
 
-    klog("[PS2] Initializing keyboard driver...\n");
+    kprintf("[PS2] Initializing keyboard driver...\n");
 
     // Initialize driver state
     cmd_ringbuf_init(&drv_state.cmd_buf);
