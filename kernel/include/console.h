@@ -7,22 +7,22 @@
 // Console colors
 typedef enum
 {
-    CONSOLE_COLOR_BLACK,
-    CONSOLE_COLOR_BLUE,
-    CONSOLE_COLOR_GREEN,
-    CONSOLE_COLOR_CYAN,
-    CONSOLE_COLOR_RED,
-    CONSOLE_COLOR_MAGENTA,
-    CONSOLE_COLOR_BROWN,
-    CONSOLE_COLOR_LIGHT_GREY,
-    CONSOLE_COLOR_DARK_GREY,
-    CONSOLE_COLOR_LIGHT_BLUE,
-    CONSOLE_COLOR_LIGHT_GREEN,
-    CONSOLESOLE_COLOR_LIGHT_CYAN,
-    CONSOLE_COLOR_LIGHT_RED,
-    CONSOLE_COLOR_LIGHT_MAGENTA,
-    CONSOLE_COLOR_LIGHT_BROWN,
-    CONSOLE_COLOR_WHITE,
+    CONS_COL_BLACK,
+    CONS_COL_RED,
+    CONS_COL_GREEN,
+    CONS_COL_YELLOW,
+    CONS_COL_BLUE,
+    CONS_COL_PURPLE,
+    CONS_COL_CYAN,
+    CONS_COL_WHITE,
+    CONS_COL_HI_BLACK,
+    CONS_COL_HI_RED,
+    CONS_COL_HI_GREEN,
+    CONS_COL_HI_YELLOW,
+    CONS_COL_HI_BLUE,
+    CONS_COL_HI_PURPLE,
+    CONS_COL_HI_CYAN,
+    CONS_COL_HI_WHITE,
 } console_color_t;
 
 /**
@@ -58,6 +58,11 @@ void console_set_fgcol(console_color_t color);
 void console_set_bgcol(console_color_t color);
 
 /**
+ * Reset color to default
+ */
+void console_reset_color();
+
+/**
  * Set cursor position
  * #### Parameters
  *   - row: row
@@ -65,4 +70,4 @@ void console_set_bgcol(console_color_t color);
  */
 void console_set_curspos(uint16_t row, uint16_t col);
 
-#endif _CONSOLE_H
+#endif
