@@ -74,7 +74,7 @@ void kbd_init()
 void kbd_process_key_event(kbd_key_event_t e)
 {
 #ifdef DEBUG
-    klog("[KBD] Key event: %s %x\n", e.make ? "Make" : "Break", e.kc);
+    kprintf("[KBD] Key event: %s %x\n", e.make ? "Make" : "Break", e.kc);
 #endif
 
     // Ignore null and ignored keys

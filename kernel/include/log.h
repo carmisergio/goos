@@ -3,7 +3,7 @@
 
 #include <stdarg.h>
 
-#define KLOG_MAX_LEN 1024
+#define kprintf_MAX_LEN 1024
 
 #ifdef __cplusplus
 extern "C"
@@ -13,13 +13,13 @@ extern "C"
     /*
      * Initialize kernel logging subsystem
      */
-    void klog_init();
+    void kprintf_init();
 
     /*
      * Initialize kernel logging subsystem features
      * memory management
      */
-    void klog_init_aftermem();
+    void kprintf_init_aftermem();
 
     /*
      * Log to kernel log

@@ -4,7 +4,7 @@
 #include "string.h"
 
 #include "log.h"
-#include "console.h"
+#include "console/console.h"
 #include "mem/mem.h"
 #include "mem/physmem.h"
 #include "mem/vmem.h"
@@ -23,11 +23,6 @@
 // Boot information structure
 boot_info_t boot_info;
 
-void kbd_handler(kbd_event_t e)
-{
-    kprintf("Keyboard event: 0x%02x\n", e.keysym);
-}
-
 /*
  * Main kernel entry point
  * Remember to initialize boot_info before calling this!
@@ -36,7 +31,7 @@ void kmain(multiboot_info_t *mbd)
 {
     // Initialize kernel logging
     console_init();
-    klog_init();
+    kprintf_init();
     kprintf("\e[94mGOOS\e[0m starting...\n");
 
     // Initialize memory management
@@ -47,6 +42,7 @@ void kmain(multiboot_info_t *mbd)
 
     // Initialize subsystems
     kbd_init();
+    console_init_kbd();
 
     // Initialize drivers
     clock_init();
@@ -55,21 +51,30 @@ void kmain(multiboot_info_t *mbd)
 
     kprintf("BOOTED!\n");
 
-    kbd_register_kbd_event_recv(kbd_handler);
-
     char *str = "\e[31mRED \e[32mGREEN \e[34mBLUE \e[0m\n";
     console_write(str, strlen(str));
 
     str = "\e[41mRED \e[42mGREEN \e[44mBLUE \e[0m\n";
     console_write(str, strlen(str));
 
-    str = "\e[91;102mTEST\n";
+    str = "\e[91;42mTEST\e[0m\n";
     console_write(str, strlen(str));
+
+    while (true)
+    {
+        // Read name
+        console_write("Name: ", 6);
+        char buf[100];
+        int32_t n = console_readline(buf, 100);
+        buf[n] = '\0';
+        kprintf("\nHello, %s!\n", buf);
+        clock_delay_ms(500);
+    }
 
     for (;;)
     {
         // uint32_t time = clock_get_local();
-        // klog("Current time: %02d:%02d:%02d\n", time / 3600, ((time / 60) % 60), time % 60);
+        // kprintf("Current time: %02d:%02d:%02d\n", time / 3600, ((time / 60) % 60), time % 60);
 
         clock_delay_ms(1000);
     }

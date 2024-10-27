@@ -1,5 +1,5 @@
-#ifndef _CONSOLE_H
-#define _CONSOLE_H 1
+#ifndef _CONSOLE_CONSOLE_H
+#define _CONSOLE_CONSOLE_H 1
 
 #include <stdint.h>
 #include <stddef.h>
@@ -31,12 +31,33 @@ typedef enum
 void console_init();
 
 /**
+ * Set up keyboard side of the console
+ * Must be called AFTER the keyboard subsystem has been initialized
+ */
+void console_init_kbd();
+
+/**
+ * Reset console to its initial state
+ */
+void console_reset();
+
+/**
  * Write to system console
  * Parses ANSI control sequences
  * #### Parameters:
  *   - s: string to print
+ *   - n: length of string
  */
 void console_write(char *s, size_t n);
+
+/**
+ * Read from system console
+ * #### Parameters:
+ *   - s: string to print
+ *   - n: max number of bytes to read
+ * #### Returns: number of bytes read
+ */
+int32_t console_readline(char *s, size_t n);
 
 /**
  * Clear console

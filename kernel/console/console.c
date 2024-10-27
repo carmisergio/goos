@@ -1,10 +1,14 @@
-#include "console.h"
+#include "console/console.h"
 
 #include <stdbool.h>
 
 #include "drivers/vga.h"
 #include "log.h"
+#include "kbd/kbd.h"
+#include "cpu.h"
+#include "console/ascii.h"
 
+// #define DEFAULT_COLOR_FG CONS_COL_HI_GREEN
 #define DEFAULT_COLOR_FG CONS_COL_HI_GREEN
 #define DEFAULT_COLOR_BG CONS_COL_BLACK
 
@@ -17,6 +21,9 @@
 #define CHAR_CRETURN 0x0D
 #define CHAR_ESC 0x1B
 #define CHAR_DEL 0x7F
+
+// CP437 characters
+#define CP437_BLOCK 0xDB
 
 // Global console state
 typedef struct
@@ -44,9 +51,17 @@ typedef enum
 static void putchar(char c);
 static void do_newline();
 static void do_scroll();
+static kbd_event_t wait_key();
+static void kbd_event_receiver(kbd_event_t e);
+static void do_backspace();
+
+// ASCII conversion tables
+extern uint8_t normal_table[];
 
 // Global objects
 static console_state_t cstate;
+static kbd_event_t kbd_event_buf;
+static bool kbd_event_received;
 
 void console_init()
 {
@@ -64,6 +79,24 @@ void console_init()
 
     // Clear screen
     console_clear();
+}
+
+void console_init_kbd()
+{
+    // Register keyboard event handler
+    kbd_register_kbd_event_recv(kbd_event_receiver);
+}
+
+void console_reset()
+{
+    // Set up console state
+    cstate.fg = DEFAULT_COLOR_FG;
+    cstate.bg = DEFAULT_COLOR_BG;
+    cstate.cur_row = 0;
+    cstate.cur_col = 0;
+    cstate.width = VGA_WIDTH;
+    cstate.height = VGA_HEIGHT;
+    cstate.newline_adj = false;
 }
 
 // TODO: refactor
@@ -211,6 +244,72 @@ void console_write(char *s, size_t n)
     }
 }
 
+int32_t console_readline(char *s, size_t n)
+{
+    kbd_event_t kbd_event;
+    uint32_t read_n = 0;
+
+    while (true)
+    {
+        // Draw cursor
+        vga_putchar(CP437_BLOCK, cstate.cur_row, cstate.cur_col, cstate.fg, cstate.bg);
+
+        kbd_event = wait_key();
+
+        // Clear cursor
+        vga_putchar(' ', cstate.cur_row, cstate.cur_col, cstate.fg, cstate.bg);
+
+        // Special keys
+        switch (kbd_event.keysym)
+        {
+        case KS_ENTER:
+            // End of input
+            return read_n;
+        case KS_BACKSPACE:
+            if (read_n > 0)
+            {
+                do_backspace();
+                read_n--;
+            }
+            continue;
+        }
+
+        // CTRL keys
+        if (kbd_event.mod.ctrl)
+        {
+            switch (kbd_event.keysym)
+            {
+            case KS_u:
+                // Delete whole line
+                for (size_t i = 0; i < read_n; i++)
+                    do_backspace();
+                read_n = 0;
+                break;
+            }
+        }
+
+        // Get ascii representation of key
+        uint8_t ascii = kbd_event_to_ascii(kbd_event);
+
+        // Ignore non ascii characters
+        if (ascii == 0)
+            continue;
+
+        // Ignore characters after end of read buffer
+        if (read_n >= n)
+            continue;
+
+        // Echo character
+        putchar(ascii);
+
+        // Save character in read buffer
+        s[read_n] = ascii;
+
+        // Next char
+        read_n++;
+    }
+}
+
 void console_clear()
 {
     vga_clearscr(cstate.bg);
@@ -258,9 +357,7 @@ static void putchar(char c)
         }
         return;
     case CHAR_NEWLINE:
-        if (cstate.newline_adj)
-            cstate.newline_adj = false;
-        else
+        if (!cstate.newline_adj)
             do_newline();
         return;
     case CHAR_CRETURN:
@@ -270,6 +367,8 @@ static void putchar(char c)
         vga_putchar(' ', cstate.cur_row, cstate.cur_col, cstate.fg, cstate.bg);
         return;
     }
+
+    cstate.newline_adj = false;
 
     vga_putchar(c, cstate.cur_row, cstate.cur_col, cstate.fg, cstate.bg);
 
@@ -301,4 +400,39 @@ static void do_scroll()
 
     // Adjust cursor position
     cstate.cur_row--;
+}
+
+// Delete last character
+static void do_backspace()
+{
+    if (cstate.cur_col > 0)
+    {
+        cstate.cur_col--;
+    }
+    else if (cstate.cur_row > 0)
+    {
+        cstate.cur_col = cstate.width - 1;
+        cstate.cur_row--;
+    }
+
+    // Delete character
+    vga_putchar(' ', cstate.cur_row, cstate.cur_col, cstate.fg, cstate.bg);
+}
+
+// Wait for a keyboard event to come in from the keyboard subsystem
+static kbd_event_t wait_key()
+{
+    // Wait for key to be pressed
+    kbd_event_received = false;
+    while (!kbd_event_received)
+        pause();
+
+    return kbd_event_buf;
+}
+
+// Handles keyboard events from the keyboard subsystem
+static void kbd_event_receiver(kbd_event_t e)
+{
+    kbd_event_buf = e;
+    kbd_event_received = true;
 }

@@ -4,7 +4,7 @@
 #include "drivers/vga.h"
 #include "log.h"
 #include "int/interrupts.h"
-#include "console.h"
+#include "console/console.h"
 
 // Internal function prototypes
 void _panic_halt();
@@ -15,8 +15,9 @@ static inline void _hlt();
 void panic(char *code, char *message)
 {
     // Clear screen
-    console_set_bgcol(CONSOLE_COLOR_RED);
-    console_set_fgcol(CONSOLE_COLOR_WHITE);
+    console_reset();
+    console_set_bgcol(CONS_COL_RED);
+    console_set_fgcol(CONS_COL_WHITE);
     console_clear();
     console_set_curspos(0, 0);
 

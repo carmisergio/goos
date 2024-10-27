@@ -161,7 +161,7 @@ void kbdctl_init()
     write_cfg_byte(cfg_byte);
 
 #ifdef DEBUG
-    klog("[KBDCTL] Config byte (0): 0x%x\n", read_cfg_byte().bits);
+    kprintf("[KBDCTL] Config byte (0): 0x%x\n", read_cfg_byte().bits);
 #endif
 
     // Controller self test
@@ -178,7 +178,7 @@ void kbdctl_init()
     write_cfg_byte(cfg_byte);
 
 #ifdef DEBUG
-    klog("[KBDCTL] Config byte (1): 0x%x\n", read_cfg_byte().bits);
+    kprintf("[KBDCTL] Config byte (1): 0x%x\n", read_cfg_byte().bits);
 #endif
 
     // Check if the controller has two ports
@@ -186,7 +186,7 @@ void kbdctl_init()
     if (read_cfg_byte().port2_clock_dis == 0)
     {
 #ifdef DEBUG
-        klog("[KBDCTL] Second port detected\n");
+        kprintf("[KBDCTL] Second port detected\n");
 #endif
         // Controller has two ports
         use_port_2 = true;
@@ -196,7 +196,7 @@ void kbdctl_init()
     }
 
 #ifdef DEBUG
-    klog("[KBDCTL] Config byte (2): 0x%x\n", read_cfg_byte().bits);
+    kprintf("[KBDCTL] Config byte (2): 0x%x\n", read_cfg_byte().bits);
 #endif
 
     // Perform interface checks
@@ -219,7 +219,7 @@ void kbdctl_init()
     }
 
 #ifdef DEBUG
-    klog("[KBDCTL] Config byte (3): 0x%x\n", read_cfg_byte().bits);
+    kprintf("[KBDCTL] Config byte (3): 0x%x\n", read_cfg_byte().bits);
 #endif
 
     // Reset and identify device 1
@@ -257,7 +257,7 @@ void kbdctl_init()
     }
 
 #ifdef DEBUG
-    klog("[KBDCTL] Config byte (4): 0x%x\n", read_cfg_byte().bits);
+    kprintf("[KBDCTL] Config byte (4): 0x%x\n", read_cfg_byte().bits);
 #endif
 
     // Enable port interrupts
@@ -269,7 +269,7 @@ void kbdctl_init()
     if (use_port_1)
     {
         // #ifdef DEBUG
-        //         klog("[KBDCTL] Config byte (5): 0x%x\n", kbdctl_read_cfg_byte().bits);
+        //         kprintf("[KBDCTL] Config byte (5): 0x%x\n", kbdctl_read_cfg_byte().bits);
         // #endif
 
         interrupts_register_irq(IRQ_PORT1, kbdctl_irq_port1);
@@ -295,7 +295,7 @@ void kbdctl_init()
         if (!init_result)
         {
 #ifdef DEBUG
-            klog("[KBDCTL] Port 1 driver initialization failed!\n");
+            kprintf("[KBDCTL] Port 1 driver initialization failed!\n");
 #endif
             write_cmd(CMD_DISABLE_PORT1);
             interrupts_unregister_irq(IRQ_PORT1, kbdctl_irq_port1);
@@ -305,7 +305,7 @@ void kbdctl_init()
     if (use_port_2)
     {
         // #ifdef DEBUG
-        //         klog("[KBDCTL] Config byte (6): 0x%x\n", kbdctl_read_cfg_byte().bits);
+        //         kprintf("[KBDCTL] Config byte (6): 0x%x\n", kbdctl_read_cfg_byte().bits);
         // #endif
 
         interrupts_register_irq(IRQ_PORT2, kbdctl_irq_port2);
@@ -331,7 +331,7 @@ void kbdctl_init()
         if (!init_result)
         {
 #ifdef DEBUG
-            klog("[KBDCTL] Port 2 driver initialization failed!\n");
+            kprintf("[KBDCTL] Port 2 driver initialization failed!\n");
 #endif
             write_cmd(CMD_DISABLE_PORT2);
             interrupts_unregister_irq(IRQ_PORT2, kbdctl_irq_port2);
@@ -473,7 +473,7 @@ static inline void write_data_port(uint8_t data, kbdctl_port port)
     write_data(data);
 
 #ifdef DEBUG
-    klog("[KBDCTL] writing to port %d : data = 0x%x\n", port, data);
+    kprintf("[KBDCTL] writing to port %d : data = 0x%x\n", port, data);
 #endif
 }
 
@@ -484,7 +484,7 @@ static inline void write_data_port(uint8_t data, kbdctl_port port)
 static bool device_initialize(device_type *type, kbdctl_port port)
 {
 #ifdef DEBUG
-    klog("[KBDCTL] Resetting device %d\n", port);
+    kprintf("[KBDCTL] Resetting device %d\n", port);
 #endif
 
     if (!device_self_test(port))
@@ -514,7 +514,7 @@ static bool device_self_test(kbdctl_port port)
         if (retries == 0)
         {
 #ifdef DEBUG
-            klog("[KBDCTL] Port %d device self test failure: retries exceeded\n", port);
+            kprintf("[KBDCTL] Port %d device self test failure: retries exceeded\n", port);
 #endif
             return false;
         }
@@ -531,7 +531,7 @@ static bool device_self_test(kbdctl_port port)
         if (!read_data_timeout(&data1, POST_TIMEOUT))
         {
 #ifdef DEBUG
-            klog("[KBDCTL] Port %d device self test failure: no response\n", port);
+            kprintf("[KBDCTL] Port %d device self test failure: no response\n", port);
 #endif
             return false;
         }
@@ -543,7 +543,7 @@ static bool device_self_test(kbdctl_port port)
     if (!read_data_timeout(&data2, POST_TIMEOUT))
     {
 #ifdef DEBUG
-        klog("[KBDCTL] Port %d device self test failure: no response\n", port);
+        kprintf("[KBDCTL] Port %d device self test failure: no response\n", port);
 #endif
         return false;
     }
@@ -570,7 +570,7 @@ static device_type device_identify()
     }
 
 #ifdef DEBUG
-    klog("[KBDCTL] ID byte 0: 0x%x\n", data);
+    kprintf("[KBDCTL] ID byte 0: 0x%x\n", data);
 #endif
 
     // Mice send only one byte
@@ -584,7 +584,7 @@ static device_type device_identify()
     //         {
 
     // #ifdef DEBUG
-    //             klog("[KBDCTL] ID byte 1: 0x%x\n", data);
+    //             kprintf("[KBDCTL] ID byte 1: 0x%x\n", data);
     // #endif
     //         };
 
@@ -594,7 +594,7 @@ static device_type device_identify()
     if (read_data_timeout(&data, TIMEOUT))
     {
 #ifdef DEBUG
-        klog("[KBDCTL] ID byte 1: 0x%x\n", data);
+        kprintf("[KBDCTL] ID byte 1: 0x%x\n", data);
 #endif
     };
 
@@ -664,20 +664,20 @@ static void disable_port_2()
 static void kbdctl_irq_port1()
 {
 #ifdef DEBUG
-    klog("[KBDCTL] Port 1 IRQ: ");
+    kprintf("[KBDCTL] Port 1 IRQ: ");
 #endif
     uint8_t data = 0;
     if (read_data_noblock(&data))
     {
 #ifdef DEBUG
-        klog("data = 0x%x\n", data);
+        kprintf("data = 0x%x\n", data);
 #endif
         port_1_driver.got_data_callback(data);
     }
 #ifdef DEBUG
     else
     {
-        klog("no data\n", data);
+        kprintf("no data\n", data);
     }
 #endif
 }
@@ -686,20 +686,20 @@ static void kbdctl_irq_port1()
 static void kbdctl_irq_port2()
 {
 #ifdef DEBUG
-    klog("[KBDCTL] Port 2 IRQ: ");
+    kprintf("[KBDCTL] Port 2 IRQ: ");
 #endif
     uint8_t data = 0;
     if (read_data_noblock(&data))
     {
 #ifdef DEBUG
-        klog("data = 0x%x\n", data);
+        kprintf("data = 0x%x\n", data);
 #endif
         port_2_driver.got_data_callback(data);
     }
 #ifdef DEBUG
     else
     {
-        klog("no data\n", data);
+        kprintf("no data\n", data);
     }
 #endif
 }

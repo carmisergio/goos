@@ -5,6 +5,7 @@
 #include "sys/io.h"
 #include "mem/vmem.h"
 #include "panic.h"
+#include "log.h"
 
 // VGA colors
 typedef enum
@@ -55,7 +56,7 @@ static const vga_color_t color_conv_tbl[] = {
 // Pointer to screen buffer
 vga_entry_t *vga_buffer;
 
-static inline vga_entry_t vga_entry(char c, vga_color_t fg, vga_color_t bg);
+static inline vga_entry_t vga_entry(uint8_t c, vga_color_t fg, vga_color_t bg);
 static inline vga_color_t vga_color(console_color_t color);
 void vga_disablecursor();
 void vga_putentryat(vga_entry_t entry, uint16_t row, uint16_t col);
@@ -83,7 +84,7 @@ void vga_init_aftermem()
         panic("VGA_BUF_MAP_FAIL", "Unable to map VGA buffer into VAS");
 }
 
-void vga_putchar(char c, uint16_t row, uint16_t col, console_color_t fg, console_color_t bg)
+void vga_putchar(uint8_t c, uint16_t row, uint16_t col, console_color_t fg, console_color_t bg)
 {
     vga_entry_t entry = vga_entry(c, vga_color(fg), vga_color(bg));
     vga_putentryat(entry, row, col);
@@ -121,7 +122,7 @@ void vga_scroll(console_color_t bg)
 }
 
 /* Internal functions */
-static inline vga_entry_t vga_entry(char c, vga_color_t fg, vga_color_t bg)
+static inline vga_entry_t vga_entry(uint8_t c, vga_color_t fg, vga_color_t bg)
 {
 
     // COLOR = | BG | FG |

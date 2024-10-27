@@ -61,7 +61,7 @@ void serial_prtstr(enum com_port port, char *str)
  * Checks if the serial port is ready to trasmit
  *
  * Params:
- *     char c: character to output to serial
+ *     uint8_t c: character to output to serial
  *     com_port port: port to check
  * Returns: void
  */

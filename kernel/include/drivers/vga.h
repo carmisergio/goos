@@ -4,10 +4,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "console.h"
+#include "console/console.h"
 
 static const size_t VGA_WIDTH = 80;
 static const size_t VGA_HEIGHT = 25;
+
+typedef uint8_t vga_char;
 
 /*
  * Initialize vga driver
@@ -32,7 +34,7 @@ void vga_init_aftermem();
  *    - row, col: position
  *    - fg, bg: color
  */
-void vga_putchar(char c, uint16_t row, uint16_t col, console_color_t fg, console_color_t bg);
+void vga_putchar(uint8_t c, uint16_t row, uint16_t col, console_color_t fg, console_color_t bg);
 
 /*
  * Clear all characters from the screen, fill with backgorund
