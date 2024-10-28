@@ -14,38 +14,39 @@ LIBS:=$(LIBS) -nostdlib -lgcc
 
 LINK_SCRIPT:=linker.ld
 LINK_SCRIPT_INT:=linker.ld.i
-INCLUDE:=-Iinclude -Iklibc/include
+INCLUDE:=-Iinc -Iklibc/inc
+SRC:=src
 
 # Add flags specified by architecture
 CFLAGS:=$(CFLAGS) $(KERNEL_ARCH_CFLAGS)
 
 KERNEL_OBJS =\
-boot/multiboot.o \
-kernel.o \
-log.o \
-panic.o \
-clock.o \
-sysreq.o \
-mem/mem.o \
-mem/vmem.o \
-mem/physmem.o \
-mem/gdt.o \
-mem/load_gdt.o \
-int/interrupts.o \
-int/idt.o \
-int/vectors.o \
-int/load_idt.o \
-int/exceptions.o \
-drivers/serial.o \
-drivers/vga.o \
-drivers/pic.o \
-drivers/pit.o \
-drivers/kbdctl.o \
-drivers/ps2kbd/ps2kbd.o \
-kbd/kbd.o \
-kbd/keymaps/us_qwerty.o \
-console/console.o \
-console/ascii.o
+$(SRC)/boot/multiboot.o \
+$(SRC)/kernel.o \
+$(SRC)/log.o \
+$(SRC)/panic.o \
+$(SRC)/clock.o \
+$(SRC)/sysreq.o \
+$(SRC)/mem/mem.o \
+$(SRC)/mem/vmem.o \
+$(SRC)/mem/physmem.o \
+$(SRC)/mem/gdt.o \
+$(SRC)/mem/load_gdt.o \
+$(SRC)/int/interrupts.o \
+$(SRC)/int/idt.o \
+$(SRC)/int/vectors.o \
+$(SRC)/int/load_idt.o \
+$(SRC)/int/exceptions.o \
+$(SRC)/drivers/serial.o \
+$(SRC)/drivers/vga.o \
+$(SRC)/drivers/pic.o \
+$(SRC)/drivers/pit.o \
+$(SRC)/drivers/kbdctl.o \
+$(SRC)/drivers/ps2kbd/ps2kbd.o \
+$(SRC)/kbd/kbd.o \
+$(SRC)/kbd/keymaps/us_qwerty.o \
+$(SRC)/console/console.o \
+$(SRC)/console/ascii.o
 
 KLIBC_OBJS =\
 klibc/string.o \
@@ -53,23 +54,23 @@ klibc/mini-printf.o \
 
 
 OBJS=\
-boot/crti.o \
-boot/crtbegin.o \
-boot/crtend.o \
-boot/crtn.o \
-boot/boot.o \
+$(SRC)/boot/crti.o \
+$(SRC)/boot/crtbegin.o \
+$(SRC)/boot/crtend.o \
+$(SRC)/boot/crtn.o \
+$(SRC)/boot/boot.o \
 $(KERNEL_OBJS) \
 $(KLIBC_OBJS) \
 
 LINK_LIST=\
-boot/crti.o \
-boot/crtbegin.o \
-boot/boot.o \
+$(SRC)/boot/crti.o \
+$(SRC)/boot/crtbegin.o \
+$(SRC)/boot/boot.o \
 $(KERNEL_OBJS) \
 $(KLIBC_OBJS) \
 $(LIBS) \
-boot/crtend.o \
-boot/crtn.o \
+$(SRC)/boot/crtend.o \
+$(SRC)/boot/crtn.o \
 
 .PHONY: all clean
 
@@ -80,7 +81,7 @@ $(KERNEL_BIN): $(OBJS) $(LINK_SCRIPT_INT)
 	$(CC) -T $(LINK_SCRIPT_INT)  -o $@ $(CFLAGS) $(LDFLAGS) $(LINK_LIST) 
 
 # These files are provided by the compiler, copy them to known locations
-boot/crtbegin.o boot/crtend.o:
+$(SRC)/boot/crtbegin.o $(SRC)/boot/crtend.o:
 	OBJ=`$(CC) $(CFLAGS) $(LDFLAGS) -print-file-name=$(@F)` && cp "$$OBJ" $@
 	
 # Preprocess linker script
