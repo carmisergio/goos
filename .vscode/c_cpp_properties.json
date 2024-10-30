@@ -3,8 +3,8 @@
         {
             "name": "Linux",
             "includePath": [
-                "${workspaceFolder}/kernel/include/**",
-                "${workspaceFolder}/kernel/klibc/include/**"
+                "${workspaceFolder}/kernel/inc/**",
+                "${workspaceFolder}/kernel/klibc/inc/**"
             ],
             "defines": [],
             "cStandard": "c17",

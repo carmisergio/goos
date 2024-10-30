@@ -21,7 +21,7 @@
 .global kernel_stack_top
 .type kernel_stack_top, @object
 kernel_stack_bottom:
- 	.skip 16385 # 16 KiB
+ 	.skip 16 * 1024 # 16 KiB
 kernel_stack_top:
 	
 # Bootstrap page tables
@@ -180,6 +180,8 @@ _set_page_dir_entry:
 
 	// Construct PDE in %ebx
 	or		$PDE_FLAG_PRESENT, %ebx // Set present flag
+	or 		$PDE_USER, %ebx         // Page accessible by user code
+	or 		$PDE_RW, %ebx 		    // Page writeble by use code
 	
 	// Set PDE in page directory
 	add 	%edx, %eax 	 	// PDE address = page table + offset
@@ -250,6 +252,8 @@ _map_page:
 	
 	// Map page
 	or		$PTE_FLAG_PRESENT, %ebx	 // Set present bit
+	or 		$PTE_USER, %ebx          // Page accessible by user code
+	or 		$PTE_RW, %ebx 		     // Page writeble by use code
 	mov 	%ebx, (%eax)	         // Set PTE
 	
 	popa

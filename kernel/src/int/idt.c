@@ -5,6 +5,8 @@
 #include "mem/const.h"
 #include "log.h"
 
+#define IDT_ENTRY_N 49
+
 // IDT Flags
 #define IDT_TYPE_TASK 0x5
 #define IDT_TYPE_INT16 0x6
@@ -12,6 +14,7 @@
 #define IDT_TYPE_INT32 0xE
 #define IDT_TYPE_TRAP32 0xF
 #define IDT_KERNEL (0x0 << 5)
+#define IDT_USER (0x3 << 5)
 #define IDT_P (0x1 << 7)
 
 // Semgent selector flags
@@ -66,6 +69,7 @@ extern void int_vector_44();
 extern void int_vector_45();
 extern void int_vector_46();
 extern void int_vector_47();
+extern void int_vector_48();
 
 // Load IDT with LIDT instruction
 // Assembly function defined in load_idt.S
@@ -103,6 +107,21 @@ static inline void idt_int_set_entry(const uint8_t i, void (*isr)())
 
     // Flags
     idt[i].flags = IDT_TYPE_INT32 | IDT_KERNEL | IDT_P;
+}
+
+// Shortcut for initializing idt_entry_t instances as userspace callable
+// interrupts
+static inline void idt_int_set_entry_user(const uint8_t i, void (*isr)())
+{
+    // ISR addreses
+    idt[i].offset_low = (uint32_t)isr & 0xFFFF;
+    idt[i].offset_high = (uint32_t)isr >> 16;
+
+    // Always run ISRs in the kernel code segment
+    idt[i].segment = GDT_SEGMENT_KCODE | SEGSEL_KERNEL; /* Construct segment selector */
+
+    // Flags
+    idt[i].flags = IDT_TYPE_INT32 | IDT_USER | IDT_P;
 }
 
 // Clear IDTentry
@@ -162,6 +181,7 @@ void set_up_idt()
     idt_int_set_entry(45, int_vector_45);
     idt_int_set_entry(46, int_vector_46);
     idt_int_set_entry(47, int_vector_47);
+    idt_int_set_entry_user(48, int_vector_48); // System call handler
 
     // Construct IDT pointer
     idt_pointer_t idt_pointer = {.base = (uint32_t)&idt, .limit = sizeof(idt)};

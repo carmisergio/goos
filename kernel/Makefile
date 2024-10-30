@@ -8,7 +8,7 @@ LDFLAGS?=
 LIBS?=
 
 # Add required flags
-CFLAGS:=$(CFLAGS) -ffreestanding -Wall -Wextra
+CFLAGS:=$(CFLAGS) -ffreestanding -Wall -Wextra -s
 LIBS:=$(LIBS) -nostdlib -lgcc
 # There was -lk here but it doesn't compile with it on
 
@@ -46,7 +46,10 @@ $(SRC)/drivers/ps2kbd/ps2kbd.o \
 $(SRC)/kbd/kbd.o \
 $(SRC)/kbd/keymaps/us_qwerty.o \
 $(SRC)/console/console.o \
-$(SRC)/console/ascii.o
+$(SRC)/console/ascii.o \
+$(SRC)/syscall/go_user.o \
+$(SRC)/syscall/syscall.o \
+$(SRC)/proc/proc.o \
 
 KLIBC_OBJS =\
 klibc/string.o \

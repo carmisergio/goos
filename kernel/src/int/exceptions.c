@@ -349,6 +349,7 @@ void handle_exception(interrupt_context_t *ctx)
                       ctx->edx,
                       ctx->esi,
                       ctx->edi,
+                      ctx->eflags,
                       ctx->eip,
                       ctx->cs);
         panic("EXCPT_GENPROTECT", msg_buf);
@@ -378,6 +379,7 @@ void handle_exception(interrupt_context_t *ctx)
                       ctx->edx,
                       ctx->esi,
                       ctx->edi,
+                      ctx->eflags,
                       ctx->eip,
                       ctx->cs);
         panic("EXCPT_PAGEFAULT", msg_buf);

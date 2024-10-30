@@ -16,10 +16,14 @@
 
 // PDE flags
 #define PDE_FLAG_PRESENT 0x1
+#define PDE_RW (1 << 1)
+#define PDE_USER (1 << 2)
 #define PDE_ADDR_MASK 0xFFFFF000
 
 // PTE flags
 #define PTE_FLAG_PRESENT 0x1
+#define PTE_RW (1 << 1)
+#define PTE_USER (1 << 2)
 #define PTE_ADDR_MASK 0xFFFFF000
 
 // CR0 bits

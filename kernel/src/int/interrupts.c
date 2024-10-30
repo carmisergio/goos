@@ -9,6 +9,7 @@
 #include "panic.h"
 #include "drivers/pic.h"
 #include "clock.h"
+#include "syscall/syscall.h"
 
 // Maximum IRQ handlers for each IRQ
 #define MAX_IRQ_HANDLERS 2
@@ -146,10 +147,15 @@ void interrupt_handler(interrupt_context_t *ctx)
         // CPU exception
         handle_exception(ctx);
     }
-    else
+    else if (ctx->vec < 48)
     {
         // Hardware interrupt
         handle_irq(ctx->vec - IRQ_VEC_OFFSET);
+    }
+    else if (ctx->vec == 48)
+    {
+        // System call
+        handle_syscall(ctx);
     }
 }
 

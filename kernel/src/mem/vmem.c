@@ -404,7 +404,7 @@ static void vmem_int_set_pte(void *paddr, void *vaddr)
 
     // Set PTE
     pte = (uint32_t)paddr;
-    pte |= PTE_FLAG_PRESENT;
+    pte |= PTE_FLAG_PRESENT | PTE_USER | PTE_RW;
     cvas_pagetabs[pte_index] = pte;
 }
 
@@ -553,7 +553,7 @@ static void vmem_int_set_pde(void *paddr, uint32_t pde_index)
 
     // Set PDE
     pde = (uint32_t)paddr;
-    pde |= PDE_FLAG_PRESENT;
+    pde |= PDE_FLAG_PRESENT | PDE_USER | PDE_RW;
     cvas_pagedir[pde_index] = pde;
 }
 

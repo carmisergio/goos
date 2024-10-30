@@ -1,3 +1,5 @@
+#include "mem/const.h"
+
 // ISR stub for interrupts which do not push an error code to the stack
 .macro ISR_VECT_NOERR, n
     .global int_vector_\n
@@ -28,6 +30,14 @@ int_vector_common:
     push    %edx
     push    %esi
     push    %edi
+    push    %ebp
+    
+    // Make sure we're using the kernel data segment
+    mov     $GDT_SEGMENT_KDATA, %eax
+    mov     %eax, %ds
+    mov     %eax, %es
+    mov     %eax, %fs
+    mov     %eax, %gs
 
     // Call C interrupt handler
     push    %esp
@@ -35,6 +45,7 @@ int_vector_common:
     add     $4, %esp
     
     // Restore registers
+    pop     %ebp
     pop     %edi
     pop     %esi
     pop     %edx
@@ -99,4 +110,7 @@ ISR_VECT_NOERR 44
 ISR_VECT_NOERR 45
 ISR_VECT_NOERR 46
 ISR_VECT_NOERR 47
+
+// Syscall
+ISR_VECT_NOERR 48
     

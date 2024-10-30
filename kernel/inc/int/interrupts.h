@@ -9,6 +9,7 @@
 typedef struct
 {
     // Vector saved
+    uint32_t ebp;
     uint32_t edi;
     uint32_t esi;
     uint32_t edx;
@@ -23,6 +24,8 @@ typedef struct
     uint16_t cs;
     uint16_t _res0;
     uint32_t eflags;
+    uint32_t esp;
+    uint32_t ss;
 } interrupt_context_t;
 
 /*
