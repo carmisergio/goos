@@ -334,11 +334,12 @@ static void update_leds(ps2kbd_drv_state *drv_state,
                         kbd_led_states_t led_states)
 {
 
-    ps2_led_update_byte data = {.scrollck = led_states.scrllck,
-                                .numlck = led_states.numlck,
-                                .capslck = led_states.capslck};
+    ps2_led_update_byte data;
+    data.bits = 0;
+    data.scrollck = led_states.scrllck;
+    data.numlck = led_states.numlck;
+    data.capslck = led_states.capslck;
 
-    // send_cmd(drv_state, 0xF5);
     send_cmd(drv_state, 0xED);
     send_cmd(drv_state, data.bits);
 }

@@ -121,7 +121,7 @@ void kmain(multiboot_info_t *mbd)
 
     // Initialize drivers
     clock_init();
-    // kbdctl_init();
+    kbdctl_init();
     sysreq_init();
 
     kprintf("BOOTED!\n");
