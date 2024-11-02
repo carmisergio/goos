@@ -12,7 +12,7 @@ SCRIPTS_DIR:= scripts
 QEMU:=qemu-system-i386
 GDB:=gdb
 
-.PHONY: all run debug gw_write clean
+.PHONY: all run debug gw_write bochs clean 
 
 all: $(KERNEL_BIN) $(FLOPPY_IMG)
 	
@@ -38,6 +38,11 @@ debug: $(KERNEL_BIN)
 # Write generated floppy image with Greaseweazle
 gw_write: $(FLOPPY_IMG)
 	gw write --format ibm.1440 --drive B --no-verify $(FLOPPY_IMG)
+	
+# Run floppy image in bochs
+bochs: $(FLOPPY_IMG)
+	$(SCRIPTS_DIR)/debug_bochs.sh $(KERNEL_BIN)
+
 
 clean:
 	$(MAKE) -C $(KERNEL_DIR) clean

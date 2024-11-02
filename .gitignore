@@ -3,3 +3,9 @@ isodir/
 qemu.log
 
 .VSCodeCounter
+
+# GDB
+.gdb_history
+
+# Bochs
+*.txt

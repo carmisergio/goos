@@ -12,6 +12,8 @@
 #include "clock.h"
 #include "console/console.h"
 
+#define DEBUG 1
+
 #define MSG_N 64
 
 /*
@@ -25,6 +27,9 @@
 // System call numbers
 typedef enum
 {
+    // Dummy syscall
+    SYSCALL_DUMMY = 0x0000,
+
     // Clock system calls
     SYSCALL_GET_SYSTEM_TIME = 0x0100,
     SYSCALL_GET_LOCAL_TIME = 0x0101,
@@ -35,6 +40,7 @@ typedef enum
 } syscall_n_t;
 
 void syscall_handler();
+void syscall_dummy();
 void syscall_delay_ms(uint32_t time);
 void syscall_console_write(char *s, size_t n);
 
@@ -75,12 +81,23 @@ void syscall_handler()
     // Syscall number is in EAX
     syscall_n_t syscall_n = pcb->cpu_ctx.eax;
 
+    uint32_t cur_esp;
+    __asm__ volatile("mov %%esp, %0" : "=r"(cur_esp));
+
+#ifdef DEBUG
+    kdbg("[SYSCALL] %d, EIP = 0x%x, ESP = 0x%x, EBP = 0x%x, SS = 0x%x, DS = 0x%x, cur ESP = %x\n", syscall_n, pcb->cpu_ctx.eip, pcb->cpu_ctx.esp, pcb->cpu_ctx.ebp, pcb->cpu_ctx.ss, pcb->cpu_ctx.ds, cur_esp);
+#endif
+
+    // Test protected instructions
+
     // Dispatch handler
     switch (syscall_n)
     {
-    case 0:
-        kprintf("HANDLING SYSCALL\n");
+        // Dummy syscall
+    case SYSCALL_DUMMY:
+        syscall_dummy();
         break;
+
         // Clock syscalls
     case SYSCALL_DELAY_MS:
         syscall_delay_ms(pcb->cpu_ctx.ebx);
@@ -98,6 +115,15 @@ void syscall_handler()
 
     // Return to process
     go_userspace(&pcb->cpu_ctx);
+}
+
+// Dummy syscall
+void syscall_dummy()
+{
+    // int j = 0;
+    // for (int i = 0; i < 9999999; i++)
+    //     j++;
+    console_write("A", 1);
 }
 
 // Delay Milliseconds syscall

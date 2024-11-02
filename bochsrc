@@ -183,7 +183,7 @@
 #  2.2.6 2.6Ghz Intel Core 2 Duo with WinXP/g++ 3.4       21 to 25 Mips
 #  2.2.6 2.1Ghz Athlon XP with Linux 2.6/g++ 3.4          12 to 15 Mips
 #=======================================================================
-cpu: count=1, ips=10000000, reset_on_triple_fault=1
+cpu: count=1, ips=10000000, reset_on_triple_fault=1, model=pentium
 cpu: cpuid_limit_winnt=0
 
 #=======================================================================
@@ -373,7 +373,7 @@ romimage: file=$BXSHARE/BIOS-bochs-latest
 # You now need to load a VGA ROM BIOS into C0000.
 #=======================================================================
 #vgaromimage: file=bios/VGABIOS-elpin-2.40
-vgaromimage: file=$BXSHARE/VGABIOS-lgpl-latest
+vgaromimage: file=$BXSHARE/VGABIOS-lgpl-latest.bin
 #vgaromimage: file=bios/VGABIOS-lgpl-latest-cirrus
 
 #=======================================================================
@@ -569,6 +569,7 @@ pci: enabled=1, chipset=i440fx
 # Default value are sync=none, rtc_sync=0, time0=local
 #=======================================================================
 #clock: sync=none, time0=local
+clock: sync=realtime, time0=local
 
 #=======================================================================
 # CMOSIMAGE:
@@ -850,6 +851,9 @@ debugger_log: -
 #   com4: enabled=1, mode=pipe-server, dev=\\.\pipe\mypipe
 #=======================================================================
 #com1: enabled=1, mode=term, dev=/dev/ttyp9
+#
+com1: enabled=0, mode=file, dev=bochsserial.txt
+#com1: enabled=1, mode=socket-server, dev=localhost:8888
 
 
 #=======================================================================
@@ -1130,7 +1134,7 @@ parport1: enabled=1, file="parport.out"
 # Enable GDB stub. See user documentation for details.
 # Default value is enabled=0.
 #=======================================================================
-#gdbstub: enabled=0, port=1234, text_base=0, data_base=0, bss_base=0
+# gdbstub: enabled=1, port=1235, text_base=0, data_base=0, bss_base=0
 
 #=======================================================================
 # MAGIC_BREAK:
@@ -1141,7 +1145,7 @@ parport1: enabled=1, file="parport.out"
 # Example:
 #   magic_break: enabled=1
 #=======================================================================
-#magic_break: enabled=1
+magic_break: enabled=1
 
 #=======================================================================
 # DEBUG_SYMBOLS:

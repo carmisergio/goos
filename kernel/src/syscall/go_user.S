@@ -20,13 +20,12 @@ go_userspace:
     // (SS is set by IRET)
     
     // Push SS
-    push %eax // SS
+    push PROC_CTX_SS(%ebx)
     
     // Push ESP
-    mov PROC_CTX_ESP(%ebx), %eax
     push PROC_CTX_ESP(%ebx) // ESP
-    //push PROC_CTX_EFLAGS(%ebx)// EFLAGS
-    pushf
+    push PROC_CTX_EFLAGS(%ebx)// EFLAGS
+    // pushf
     push PROC_CTX_CS(%ebx)// CS
     push PROC_CTX_EIP(%ebx) // EIP
     
@@ -37,7 +36,7 @@ go_userspace:
     mov PROC_CTX_ESI(%ebx), %esi // ESI 
     mov PROC_CTX_EDI(%ebx), %edi // EDI 
     mov PROC_CTX_EBP(%ebx), %ebp // EBP
-    mov PROC_CTX_EBX(%ebx), %ebx // EBX last, be cause it contains
+    mov PROC_CTX_EBX(%ebx), %ebx // EBX last, because it contains
                                  // the pointer to the context
 
     // To userspace and beyond!

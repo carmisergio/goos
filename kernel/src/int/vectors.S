@@ -32,6 +32,12 @@ int_vector_common:
     push    %edi
     push    %ebp
     
+    // Save segment registers
+    push    %ds
+    push    %es
+    push    %fs
+    push    %gs
+    
     // Make sure we're using the kernel data segment
     mov     $GDT_SEGMENT_KDATA, %eax
     mov     %eax, %ds
@@ -43,6 +49,12 @@ int_vector_common:
     push    %esp
     call    interrupt_handler
     add     $4, %esp
+
+    // Restore segment registers
+    pop    %gs
+    pop    %fs
+    pop    %es
+    pop    %ds
     
     // Restore registers
     pop     %ebp

@@ -19,7 +19,8 @@
     "scancodes.h": "c",
     "ps2kbd.h": "c",
     "keymap.h": "c",
-    "const.h": "c"
+    "const.h": "c",
+    "*.tcc": "c"
   },
   "C_Cpp.default.compilerPath": "/usr/bin/gcc"
 }

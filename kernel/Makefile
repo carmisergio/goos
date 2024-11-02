@@ -3,12 +3,12 @@ KERNEL_BIN:=kernel.elf
 CC:=i386-elf-gcc
 
 # Flag defaults
-CFLAGS?=-O2 -g -Wpedantic -std=c23
+CFLAGS?=-O0 -g -Wpedantic -std=c23
 LDFLAGS?=
 LIBS?=
 
 # Add required flags
-CFLAGS:=$(CFLAGS) -ffreestanding -Wall -Wextra -s
+CFLAGS:=$(CFLAGS) -ffreestanding -Wall -Wextra
 LIBS:=$(LIBS) -nostdlib -lgcc
 # There was -lk here but it doesn't compile with it on
 

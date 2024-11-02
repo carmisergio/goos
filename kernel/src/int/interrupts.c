@@ -11,6 +11,8 @@
 #include "clock.h"
 #include "syscall/syscall.h"
 
+#define DEBUG 1
+
 // Maximum IRQ handlers for each IRQ
 #define MAX_IRQ_HANDLERS 2
 
@@ -142,6 +144,13 @@ void interrupts_unregister_irq(uint8_t irq, void (*handler)())
 // Main ISR, called from vectors in vectors.S
 void interrupt_handler(interrupt_context_t *ctx)
 {
+    uint32_t cur_esp;
+    __asm__ volatile("mov %%esp, %0" : "=r"(cur_esp));
+
+#ifdef DEBUG
+    kdbg("[INT] %d, return ESP = 0x%x, cur ESP = 0x%x\n", ctx->vec, ctx->esp, cur_esp);
+#endif
+
     if (ctx->vec < 32)
     {
         // CPU exception
