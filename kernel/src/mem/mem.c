@@ -7,6 +7,7 @@
 #include "mem/vmem.h"
 #include "mem/physmem.h"
 #include "mem/gdt.h"
+#include "mem/kalloc.h"
 #include "drivers/vga.h"
 #include "panic.h"
 
@@ -40,6 +41,9 @@ void mem_init(multiboot_info_t *mbd)
 
     // Set up GDT
     setup_gdt();
+
+    // Initialize kalloc
+    kalloc_init();
 }
 
 void *mem_palloc_k(uint32_t n)

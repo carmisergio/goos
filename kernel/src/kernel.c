@@ -25,6 +25,7 @@
 #include "boot/boot.h"
 #include "cpu.h"
 #include "proc/proc.h"
+#include "mem/kalloc.h"
 
 // Boot information structure
 boot_info_t boot_info;
@@ -58,13 +59,40 @@ void userland_main()
     while (true)
     {
 
-        for (uint32_t i = 0; i < 500; i++)
-        {
-            mini_snprintf(buf, 50, "Hello from\x1b[91m userspace\x1b[0m! %d\n", i);
-            call_syscall_console_write(buf, strlen(buf));
-        }
+        // for (uint32_t i = 0; i < 500; i++)
+        // {
+        //     mini_snprintf(buf, 50, "Hello from\x1b[91m userspace\x1b[0m! %d\n", i);
+        //     call_syscall_console_write(buf, strlen(buf));
+        // }
         call_syscall_delay_ms(1000);
     }
+}
+
+void kalloc_test()
+{
+    // Allocate, use, and free some memory
+    void **memories = kalloc(sizeof(void *) * 500);
+
+    // kprintf("Got memory: 0x%x\n", mem_palloc_k(1));
+
+    for (int j = 0; j < 500; j++)
+    {
+        for (int i = 0; i < 500; i++)
+        {
+            memories[i] = kalloc(i * 5);
+            memset(memories[i], 0x12, i * 5);
+        }
+
+        for (int i = 0; i < 500; i++)
+        {
+            kfree(memories[i]);
+        }
+
+        kdbg("Freed!\n");
+        kalloc_dbg_block_chain();
+    }
+
+    kprintf("OK!\n");
 }
 
 // void console_test()
@@ -143,16 +171,21 @@ void kmain(multiboot_info_t *mbd)
 
     // pit_setup_channel(PIT_CHANNEL_0, PIT_MODE_1, 0);
 
-    proc_cb_t *pcb = proc_cur();
-    memset(pcb, 0, sizeof(proc_cb_t));
-    pcb->cpu_ctx.ds = GDT_SEGMENT_UDATA | 0x3;
-    pcb->cpu_ctx.eip = (uint32_t)userland_main;
-    pcb->cpu_ctx.cs = GDT_SEGMENT_UCODE | 0x3;
-    pcb->cpu_ctx.eflags = EFLAGS | EFLAGS_IF;
-    // pcb->cpu_ctx.eflags = EFLAGS;
-    pcb->cpu_ctx.esp = (uint32_t)&userland_stack + sizeof(userland_stack);
-    pcb->cpu_ctx.ebp = pcb->cpu_ctx.esp;
-    pcb->cpu_ctx.ss = GDT_SEGMENT_UDATA | 0x3;
+    // proc_cb_t *pcb = proc_cur();
+    // memset(pcb, 0, sizeof(proc_cb_t));
+    // pcb->cpu_ctx.ds = GDT_SEGMENT_UDATA | 0x3;
+    // pcb->cpu_ctx.eip = (uint32_t)userland_main;
+    // pcb->cpu_ctx.cs = GDT_SEGMENT_UCODE | 0x3;
+    // pcb->cpu_ctx.eflags = EFLAGS | EFLAGS_IF;
+    // // pcb->cpu_ctx.eflags = EFLAGS;
+    // pcb->cpu_ctx.esp = (uint32_t)&userland_stack + sizeof(userland_stack);
+    // pcb->cpu_ctx.ebp = pcb->cpu_ctx.esp;
+    // pcb->cpu_ctx.ss = GDT_SEGMENT_UDATA | 0x3;
 
-    go_userspace(&pcb->cpu_ctx);
+    // go_userspace(&pcb->cpu_ctx);
+
+    kalloc_test();
+
+    while (true)
+        ;
 }

@@ -32,6 +32,7 @@ $(SRC)/mem/vmem.o \
 $(SRC)/mem/physmem.o \
 $(SRC)/mem/gdt.o \
 $(SRC)/mem/load_gdt.o \
+$(SRC)/mem/kalloc.o \
 $(SRC)/int/interrupts.o \
 $(SRC)/int/idt.o \
 $(SRC)/int/vectors.o \
