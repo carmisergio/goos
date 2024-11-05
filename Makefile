@@ -6,6 +6,9 @@ KERNEL_BIN:= $(KERNEL_DIR)/kernel.elf
 
 FLOPPY_DIR:= floppy
 FLOPPY_IMG:= $(FLOPPY_DIR)/goos.img
+ 
+PROGRAMS_DIR:=userland/programs
+PROGRAMS_BIN:=$(PROGRAMS_DIR)/bin
 
 SCRIPTS_DIR:= scripts
 
@@ -19,12 +22,17 @@ all: $(KERNEL_BIN) $(FLOPPY_IMG)
 # Build the kernel
 $(KERNEL_BIN): FORCE
 	$(MAKE) -C $(KERNEL_DIR)
+	
+# Build the programs
+$(PROGRAMS_BIN): FORCE
+	$(MAKE) -C $(PROGRAMS_DIR)
 
 # Build the floppy image
-$(FLOPPY_IMG): $(KERNEL_BIN)
+$(FLOPPY_IMG): $(KERNEL_BIN) $(PROGRAMS_BIN)
 	cp $(FLOPPY_DIR)/grub_base.img $@
 	mcopy -s -i $@ $(FLOPPY_DIR)/root/* ::/
 	mcopy -i $@ $(KERNEL_BIN) ::/boot/
+	mcopy -i $@ $(PROGRAMS_BIN)/* ::/bin/
 	
 
 # Run compiled rernel with QEMU
@@ -46,6 +54,7 @@ bochs: $(FLOPPY_IMG)
 
 clean:
 	$(MAKE) -C $(KERNEL_DIR) clean
+	$(MAKE) -C $(PROGRAMS_DIR) clean
 	rm -f $(FLOPPY_IMG)
 
 FORCE: ;

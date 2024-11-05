@@ -70,8 +70,6 @@ void kalloc_init()
 
 void *kalloc(size_t n)
 {
-    kdbg("Allocating %d\n", n);
-    kalloc_dbg_block_chain();
     // Clamp size to minimum allocation size
     if (n < MIN_ALLOC)
         n = MIN_ALLOC;
@@ -91,14 +89,9 @@ void *kalloc(size_t n)
         // Defragment block
         block_t *addrlst_pos = addrlst_find_insert_pos(bptr);
         addrlst_insert_after(addrlst_pos, bptr);
-
-        kalloc_dbg_block_chain();
-
         bptr = defrag_block(bptr);
 
         addrlst_remove(bptr);
-
-        kalloc_dbg_block_chain();
     }
 
     // Check if we need to partition the block
@@ -142,19 +135,19 @@ void kalloc_dbg_block_chain()
 {
     block_t *cur;
 
-    kdbg("### Memory block chain: \n");
-    kdbg("Size list: \n");
+    kprintf("### Memory block chain: \n");
+    kprintf("Size list: \n");
     cur = sizelst_head;
     while (cur != NULL)
     {
-        kdbg(" [0x%x, size = %d]\n", cur, cur->size);
+        kprintf(" [0x%x, size = %d]\n", cur, cur->size);
         cur = cur->sizelst_next;
     }
-    kdbg("Address list: \n");
+    kprintf("Address list: \n");
     cur = addrlst_head;
     while (cur != NULL)
     {
-        kdbg(" [0x%x, size = %d]\n", cur, cur->size);
+        kprintf(" [0x%x, size = %d]\n", cur, cur->size);
         cur = cur->addrlst_next;
     }
 }

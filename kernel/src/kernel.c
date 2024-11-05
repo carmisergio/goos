@@ -77,22 +77,35 @@ void kalloc_test()
 
     for (int j = 0; j < 500; j++)
     {
-        for (int i = 0; i < 500; i++)
+        for (int i = 1; i < 100; i++)
         {
-            memories[i] = kalloc(i * 5);
-            memset(memories[i], 0x12, i * 5);
+            memories[i] = kalloc(i * 20);
+            memset(memories[i], 0x12, i * 20);
         }
 
-        for (int i = 0; i < 500; i++)
+        for (int i = 1; i < 100; i++)
         {
-            kfree(memories[i]);
+            if (i % 2 != 0)
+                kfree(memories[i]);
+        }
+
+        void *tmp = kalloc(100);
+        memset(tmp, 0x56, 100);
+        kfree(tmp);
+
+        kdbg("Freed!\n");
+        // kalloc_dbg_block_chain();
+        for (int i = 1; i < 100; i++)
+        {
+            if (i % 2 == 0)
+                kfree(memories[i]);
         }
 
         kdbg("Freed!\n");
-        kalloc_dbg_block_chain();
     }
 
     kprintf("OK!\n");
+    kalloc_dbg_block_chain();
 }
 
 // void console_test()
