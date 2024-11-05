@@ -55,6 +55,7 @@ $(SRC)/proc/proc.o \
 KLIBC_OBJS =\
 klibc/string.o \
 klibc/mini-printf.o \
+klibc/sync/slock.o \
 
 
 OBJS=\
@@ -103,9 +104,3 @@ clean:
 	rm -f $(KERNEL_BIN)
 	rm -f $(OBJS) *.o */*.o */*/*.o *.i
 	rm -f $(OBJS:.o=.d) *.d */*.d */*/*.d
-
-# -include $(OBJS:.o=.d)
-
-
-
-

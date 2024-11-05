@@ -139,6 +139,11 @@ void kalloc_test()
 //     }
 // }
 
+void timer_callback(void *data)
+{
+    kprintf("TMR: %d\n", (uint32_t)data);
+}
+
 /*
  * Main kernel entry point
  * Remember to initialize boot_info before calling this!
@@ -166,6 +171,13 @@ void kmain(multiboot_info_t *mbd)
     sysreq_init();
 
     kprintf("BOOTED!\n");
+
+    timer_handle_t timer = clock_set_timer(1000, TIMER_INTERVAL, timer_callback, (void *)3103);
+    clock_set_timer(800, TIMER_INTERVAL, timer_callback, (void *)2301);
+
+    clock_delay_ms(5000);
+
+    clock_reset_timer(timer, 500);
 
     // proc_ctx_t proc_ctx = {
     //     .eax = 0,
@@ -197,7 +209,7 @@ void kmain(multiboot_info_t *mbd)
 
     // go_userspace(&pcb->cpu_ctx);
 
-    kalloc_test();
+    // kalloc_test();
 
     while (true)
         ;
