@@ -44,6 +44,7 @@ $(SRC)/drivers/pic.o \
 $(SRC)/drivers/pit.o \
 $(SRC)/drivers/kbdctl.o \
 $(SRC)/drivers/ps2kbd/ps2kbd.o \
+$(SRC)/drivers/dummyblk.o \
 $(SRC)/kbd/kbd.o \
 $(SRC)/kbd/keymaps/us_qwerty.o \
 $(SRC)/console/console.o \
@@ -51,11 +52,13 @@ $(SRC)/console/ascii.o \
 $(SRC)/syscall/go_user.o \
 $(SRC)/syscall/syscall.o \
 $(SRC)/proc/proc.o \
+$(SRC)/blkdev/blkdev.o \
 
 KLIBC_OBJS =\
 klibc/string.o \
 klibc/mini-printf.o \
 klibc/sync/slock.o \
+klibc/collections/dllist.o \
 
 
 OBJS=\

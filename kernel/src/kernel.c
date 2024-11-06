@@ -26,6 +26,9 @@
 #include "cpu.h"
 #include "proc/proc.h"
 #include "mem/kalloc.h"
+#include "collections/dllist.h"
+#include "blkdev/blkdev.h"
+#include "drivers/dummyblk.h"
 
 // Boot information structure
 boot_info_t boot_info;
@@ -58,12 +61,11 @@ void userland_main()
 
     while (true)
     {
-
-        // for (uint32_t i = 0; i < 500; i++)
-        // {
-        //     mini_snprintf(buf, 50, "Hello from\x1b[91m userspace\x1b[0m! %d\n", i);
-        //     call_syscall_console_write(buf, strlen(buf));
-        // }
+        for (uint32_t i = 0; i < 500; i++)
+        {
+            mini_snprintf(buf, 50, "Hello from\x1b[91m userspace\x1b[0m! %d\n", i);
+            call_syscall_console_write(buf, strlen(buf));
+        }
         call_syscall_delay_ms(1000);
     }
 }
@@ -164,6 +166,7 @@ void kmain(multiboot_info_t *mbd)
     // Initialize subsystems
     kbd_init();
     console_init_kbd();
+    blkdev_init();
 
     // Initialize drivers
     clock_init();
@@ -172,12 +175,48 @@ void kmain(multiboot_info_t *mbd)
 
     kprintf("BOOTED!\n");
 
-    timer_handle_t timer = clock_set_timer(1000, TIMER_INTERVAL, timer_callback, (void *)3103);
-    clock_set_timer(800, TIMER_INTERVAL, timer_callback, (void *)2301);
+    dummyblk_init(3103, 10);
+    blkdev_debug_devices();
 
-    clock_delay_ms(5000);
+    blkdev_handle_t handle = blkdev_get_handle("d3103");
+    kprintf("Handle: %d\n", handle);
 
-    clock_reset_timer(timer, 500);
+    block_buf_t *buf;
+    if (blkdev_read(&buf, handle, 8))
+    {
+        for (size_t i = 0; i < BLOCK_SIZE; i++)
+        {
+            kprintf("%02x ", *(buf + i));
+        }
+    }
+    else
+    {
+        kprintf("Read failed!\n");
+    }
+
+    if (blkdev_read(&buf, handle, 2))
+    {
+        for (size_t i = 0; i < BLOCK_SIZE; i++)
+        {
+            kprintf("%02x ", *(buf + i));
+        }
+    }
+    else
+    {
+        kprintf("Read failed!\n");
+    }
+
+    if (blkdev_read(&buf, handle, 10))
+    {
+        for (size_t i = 0; i < BLOCK_SIZE; i++)
+        {
+            kprintf("%02x ", *(buf + i));
+        }
+    }
+    else
+    {
+        kprintf("Read failed!\n");
+    }
 
     // proc_ctx_t proc_ctx = {
     //     .eax = 0,
