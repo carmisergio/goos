@@ -23,7 +23,8 @@
     "*.tcc": "c",
     "dllist.h": "c",
     "cstdio": "cpp",
-    "locale": "cpp"
+    "locale": "cpp",
+    "blkdev.h": "c"
   },
   "C_Cpp.default.compilerPath": "/usr/bin/gcc"
 }

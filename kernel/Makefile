@@ -44,7 +44,7 @@ $(SRC)/drivers/pic.o \
 $(SRC)/drivers/pit.o \
 $(SRC)/drivers/kbdctl.o \
 $(SRC)/drivers/ps2kbd/ps2kbd.o \
-$(SRC)/drivers/dummyblk.o \
+$(SRC)/drivers/ramdisk.o \
 $(SRC)/kbd/kbd.o \
 $(SRC)/kbd/keymaps/us_qwerty.o \
 $(SRC)/console/console.o \

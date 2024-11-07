@@ -26,9 +26,8 @@
 #include "cpu.h"
 #include "proc/proc.h"
 #include "mem/kalloc.h"
-#include "collections/dllist.h"
 #include "blkdev/blkdev.h"
-#include "drivers/dummyblk.h"
+#include "drivers/ramdisk.h"
 
 // Boot information structure
 boot_info_t boot_info;
@@ -141,9 +140,52 @@ void kalloc_test()
 //     }
 // }
 
-void timer_callback(void *data)
+void test_ramdisk()
 {
-    kprintf("TMR: %d\n", (uint32_t)data);
+    size_t nblocks = 14 * 1024 * 1024 / 512; // 4M
+    ramdisk_create(0, nblocks);
+    blkdev_debug_devices();
+
+    blkdev_handle_t handle = blkdev_get_handle("rd0");
+    if (handle == BLKDEV_HANDLE_NULL)
+    {
+        kprintf("Error getting handle!\n");
+        return;
+    }
+
+    kprintf("Handle: %d\n", handle);
+
+    uint8_t *buf = kalloc(BLOCK_SIZE);
+
+    kprintf("Media changed: %d\n", blkdev_media_changed(handle));
+
+    // Write data
+    memset(buf, 0xFF, BLOCK_SIZE);
+    for (size_t i = 0; i < nblocks; i++)
+    {
+        if (!blkdev_write(buf, handle, i))
+        {
+            kprintf("Write fail!\n");
+            return;
+        }
+    }
+    memset(buf, 0x00, BLOCK_SIZE);
+
+    // Read data
+    if (!blkdev_read(buf, handle, 0))
+    {
+        kprintf("Read fail!\n");
+        return;
+    }
+
+    // Result
+    for (size_t i = 0; i < BLOCK_SIZE; i++)
+    {
+        kprintf("%x ", buf[i]);
+    }
+    kprintf("\n");
+
+    blkdev_release_handle(handle);
 }
 
 /*
@@ -175,48 +217,7 @@ void kmain(multiboot_info_t *mbd)
 
     kprintf("BOOTED!\n");
 
-    dummyblk_init(3103, 10);
-    blkdev_debug_devices();
-
-    blkdev_handle_t handle = blkdev_get_handle("d3103");
-    kprintf("Handle: %d\n", handle);
-
-    block_buf_t *buf;
-    if (blkdev_read(&buf, handle, 8))
-    {
-        for (size_t i = 0; i < BLOCK_SIZE; i++)
-        {
-            kprintf("%02x ", *(buf + i));
-        }
-    }
-    else
-    {
-        kprintf("Read failed!\n");
-    }
-
-    if (blkdev_read(&buf, handle, 2))
-    {
-        for (size_t i = 0; i < BLOCK_SIZE; i++)
-        {
-            kprintf("%02x ", *(buf + i));
-        }
-    }
-    else
-    {
-        kprintf("Read failed!\n");
-    }
-
-    if (blkdev_read(&buf, handle, 10))
-    {
-        for (size_t i = 0; i < BLOCK_SIZE; i++)
-        {
-            kprintf("%02x ", *(buf + i));
-        }
-    }
-    else
-    {
-        kprintf("Read failed!\n");
-    }
+    test_ramdisk();
 
     // proc_ctx_t proc_ctx = {
     //     .eax = 0,

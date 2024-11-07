@@ -6,6 +6,8 @@
 #include "panic.h"
 #include "log.h"
 
+#define DEBUG
+
 // Maximum number of active block device handles
 #define MAX_HANDLES 4
 
@@ -22,7 +24,6 @@ typedef struct
 typedef struct
 {
     devlst_entry_t *devlst_entry;
-    block_buf_t *buf;
     bool used;
 } handle_slot_t;
 
@@ -79,23 +80,27 @@ blkdev_handle_t blkdev_get_handle(const char *major)
     if (handle == BLKDEV_HANDLE_NULL)
         return BLKDEV_HANDLE_NULL;
 
-    // Allocate buffer
-    block_buf_t *buf = kalloc(BLOCK_SIZE);
-    if (buf == NULL)
-        return false;
-
     size_t idx = handle_to_index(handle);
     handles[idx].used = true;
     handles[idx].devlst_entry = dev;
-    handles[idx].buf = buf;
     dev->used = true;
 
     return handle;
 }
 
-bool blkdev_read(block_buf_t **buf, const blkdev_handle_t handle,
+void blkdev_release_handle(blkdev_handle_t handle)
+{
+    size_t idx = handle_to_index(handle);
+    handles[idx].used = false;
+    handles[idx].devlst_entry->used = false;
+}
+
+bool blkdev_read(uint8_t *buf, const blkdev_handle_t handle,
                  const uint32_t block)
 {
+    if (handle == BLKDEV_HANDLE_NULL)
+        return false;
+
     size_t idx = handle_to_index(handle);
 
     // Check handle validity
@@ -105,19 +110,73 @@ bool blkdev_read(block_buf_t **buf, const blkdev_handle_t handle,
     // Get device
     blkdev_t *dev = &handles[idx].devlst_entry->dev;
 
+#ifdef DEBUG
+    kdbg("[BLKDEV] Device %s (handle %d), read block %d\n", dev->major, handle, block);
+#endif
+
     // Check block in range
     if (block >= dev->nblocks)
         return false;
 
-    // Perform read operation
-    if (dev->read_blk(dev->drvstate, handles[idx].buf, block))
-    {
-        // Read succesful
-        *buf = handles[idx].buf;
-        return true;
-    }
+    // Check if device supports reading
+    if (dev->read_blk == NULL)
+        return false;
 
-    return false;
+    // Perform read operation
+    return dev->read_blk(dev->drvstate, buf, block);
+}
+
+bool blkdev_write(const uint8_t *buf, const blkdev_handle_t handle,
+                  const uint32_t block)
+{
+    if (handle == BLKDEV_HANDLE_NULL)
+        return false;
+
+    size_t idx = handle_to_index(handle);
+
+    // Check handle validity
+    if (idx >= MAX_HANDLES || !handles[idx].used)
+        return false;
+
+    // Get device
+    blkdev_t *dev = &handles[idx].devlst_entry->dev;
+
+#ifdef DEBUG
+    kdbg("[BLKDEV] Device %s (handle %d), write block %d\n", dev->major, handle, block);
+#endif
+
+    // Check block in range
+    if (block >= dev->nblocks)
+        return false;
+
+    // Check if device supports writing
+    if (dev->write_blk == NULL)
+        return false;
+
+    // Perform read operation
+    return dev->write_blk(dev->drvstate, buf, block);
+}
+
+bool blkdev_media_changed(const blkdev_handle_t handle)
+{
+    if (handle == BLKDEV_HANDLE_NULL)
+        return false;
+
+    size_t idx = handle_to_index(handle);
+
+    // Check handle validity
+    if (idx >= MAX_HANDLES || !handles[idx].used)
+        return false;
+
+    // Get device
+    blkdev_t *dev = &handles[idx].devlst_entry->dev;
+
+    // Check if device supports writing
+    if (dev->media_changed == NULL)
+        return false;
+
+    // Perform read operation
+    return dev->media_changed(dev->drvstate);
 }
 
 /* Internal functions */
@@ -175,5 +234,3 @@ void blkdev_debug_devices()
         cur = dllist_next(cur);
     }
 }
-
-// TODO: add function that allows external access to media_changed

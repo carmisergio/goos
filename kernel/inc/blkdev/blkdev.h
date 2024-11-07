@@ -10,9 +10,6 @@
 typedef size_t blkdev_handle_t;
 #define BLKDEV_HANDLE_NULL 0
 
-// Block buffer
-typedef uint8_t block_buf_t;
-
 // Representation of a block device
 typedef struct
 {
@@ -25,8 +22,9 @@ typedef struct
 
     /// Operations
     // Read block
-    bool (*read_blk)(void *, block_buf_t *, uint32_t); // (drvstate, buffer, intval) -> success
-
+    bool (*read_blk)(void *, uint8_t *, uint32_t); // (drvstate, buffer, blkid) -> success
+    // Write block
+    bool (*write_blk)(void *, uint8_t *, uint32_t); // (drvstate, buffer, blkid) -> success
     // Check if media was changed
     bool (*media_changed)(void *); // (drvstate) -> true: media chagned
 } blkdev_t;
@@ -51,15 +49,41 @@ bool blkdev_register(blkdev_t dev);
 blkdev_handle_t blkdev_get_handle(const char *major);
 
 /*
+ * Release handle to block device
+ * #### Parameters:
+ *  - handle: block device handle
+ */
+void blkdev_release_handle(blkdev_handle_t handle);
+
+/*
  * Read block from block device
  * #### Parameters:
- *   - buf: will set this to a pointer to a buffer containing
- *          the requested block's data
+ *   - buf: buffer to read into
  *   - handle: block device handle
  *   - block: logical block ID to read
+ * #### Returns: true on success
  */
-bool blkdev_read(block_buf_t **buf, const blkdev_handle_t handle,
+bool blkdev_read(uint8_t *buf, const blkdev_handle_t handle,
                  const uint32_t block);
+
+/*
+ * Write block to block device
+ * #### Parameters:
+ *   - buf: buffer to write
+ *   - handle: block device handle
+ *   - block: logical block ID to write
+ * #### Returns: true on success
+ */
+bool blkdev_write(const uint8_t *buf, const blkdev_handle_t handle,
+                  const uint32_t block);
+
+/*
+ * Check if block device media was changed
+ * #### Parameters:
+ *   - handle: block device handle
+ * #### Returns: true if media changed
+ */
+bool blkdev_media_changed(const blkdev_handle_t handle);
 
 // Debug registered devices
 void blkdev_debug_devices();
