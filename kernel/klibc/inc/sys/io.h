@@ -28,4 +28,10 @@ static inline void outb16_lh(uint16_t port, uint16_t val)
     outb(port, (val & 0xFF00) >> 8);
 }
 
+// Small delay
+static inline void io_delay()
+{
+    outb(0x80, 0);
+}
+
 #endif

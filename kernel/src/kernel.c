@@ -28,6 +28,8 @@
 #include "mem/kalloc.h"
 #include "blkdev/blkdev.h"
 #include "drivers/ramdisk.h"
+#include "drivers/cmos.h"
+#include "drivers/fdc.h"
 
 // Boot information structure
 boot_info_t boot_info;
@@ -214,10 +216,11 @@ void kmain(multiboot_info_t *mbd)
     clock_init();
     kbdctl_init();
     sysreq_init();
+    fdc_init();
 
     kprintf("BOOTED!\n");
 
-    test_ramdisk();
+    // test_ramdisk();
 
     // proc_ctx_t proc_ctx = {
     //     .eax = 0,

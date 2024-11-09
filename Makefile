@@ -36,8 +36,8 @@ $(FLOPPY_IMG): $(KERNEL_BIN) $(PROGRAMS_BIN)
 	
 
 # Run compiled rernel with QEMU
-run: $(KERNEL_BIN)
-	$(QEMU) -kernel $(KERNEL_BIN) -m 16M
+run: $(KERNEL_BIN) $(FLOPPY_IMG)
+	$(QEMU) -kernel $(KERNEL_BIN) -fda $(FLOPPY_IMG) -m 16M
 
 # Run compiled rernel with QEMU in debug mode
 debug: $(KERNEL_BIN)
