@@ -6,6 +6,7 @@ KERNEL_BIN:= $(KERNEL_DIR)/kernel.elf
 
 FLOPPY_DIR:= floppy
 FLOPPY_IMG:= $(FLOPPY_DIR)/goos.img
+FLPB_IMG:= $(FLOPPY_DIR)/flpb.img
  
 PROGRAMS_DIR:=userland/programs
 PROGRAMS_BIN:=$(PROGRAMS_DIR)/bin
@@ -34,10 +35,13 @@ $(FLOPPY_IMG): $(KERNEL_BIN) $(PROGRAMS_BIN)
 	mcopy -i $@ $(KERNEL_BIN) ::/boot/
 	mcopy -i $@ $(PROGRAMS_BIN)/* ::/bin/
 	
+# Dummy floppy image
+$(FLPB_IMG): FORCE
+	dd if=/dev/zero of=$@ bs=512 count=2880
 
 # Run compiled rernel with QEMU
-run: $(KERNEL_BIN) $(FLOPPY_IMG)
-	$(QEMU) -kernel $(KERNEL_BIN) -fda $(FLOPPY_IMG) -m 16M
+run: $(KERNEL_BIN) $(FLOPPY_IMG) $(FLPB_IMG)
+	$(QEMU) -kernel $(KERNEL_BIN) -fda $(FLOPPY_IMG) -fdb $(FLPB_IMG) -m 16M
 
 # Run compiled rernel with QEMU in debug mode
 debug: $(KERNEL_BIN)
@@ -55,6 +59,6 @@ bochs: $(FLOPPY_IMG)
 clean:
 	$(MAKE) -C $(KERNEL_DIR) clean
 	$(MAKE) -C $(PROGRAMS_DIR) clean
-	rm -f $(FLOPPY_IMG)
+	rm -f $(FLOPPY_IMG) $(FLPB_IMG)
 
 FORCE: ;

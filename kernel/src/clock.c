@@ -142,15 +142,19 @@ void clock_clear_timer(timer_handle_t handle)
 bool clock_reset_timer(timer_handle_t handle, uint64_t duration)
 {
     timer_t *timer;
+    bool reset_ok = false;
     slock_acquire(&timers_lck);
 
     if ((timer = find_timer_by_handle(handle)) != NULL)
     {
         timer->duration = duration;
         timer->start = system_time;
+        reset_ok = true;
     }
 
     slock_release(&timers_lck);
+
+    return reset_ok;
 }
 
 bool clock_is_timer_active(timer_handle_t handle)

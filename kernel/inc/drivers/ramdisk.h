@@ -4,5 +4,5 @@
 
 #include <stdint.h>
 
-// Initialize ramdisk
+// Initialize ramdiske
 void ramdisk_create(uint32_t id, uint32_t nblocks);

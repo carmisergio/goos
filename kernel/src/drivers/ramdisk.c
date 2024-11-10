@@ -14,10 +14,9 @@ typedef struct
 } rd_state_t;
 
 // Internal function prototypes
-uint8_t **allocate_blocklist(uint32_t nblocks);
-bool read_op(void *drvstate, uint8_t *buf, uint32_t block);
-bool write_op(void *drvstate, uint8_t *buf, uint32_t block);
-
+static uint8_t **allocate_blocklist(uint32_t nblocks);
+static bool read_req(blkdev_t *dev, uint8_t *buf, uint32_t block);
+static bool write_req(blkdev_t *dev, uint8_t *buf, uint32_t block);
 void ramdisk_create(uint32_t id, uint32_t nblocks)
 {
     // Construct major
@@ -53,8 +52,8 @@ void ramdisk_create(uint32_t id, uint32_t nblocks)
         .major = major,
         .drvstate = state,
         .nblocks = nblocks,
-        .read_blk = read_op,
-        .write_blk = write_op,
+        .read_blk = read_req,
+        .write_blk = write_req,
         .media_changed = NULL,
     };
 
@@ -65,7 +64,7 @@ void ramdisk_create(uint32_t id, uint32_t nblocks)
 /* Internal functions */
 
 // Allocate blocks
-uint8_t **allocate_blocklist(uint32_t nblocks)
+static uint8_t **allocate_blocklist(uint32_t nblocks)
 {
     // Allocate list of pointers to blocks
     uint8_t **blklist = kalloc(sizeof(uint8_t *) * nblocks);
@@ -92,9 +91,9 @@ uint8_t **allocate_blocklist(uint32_t nblocks)
     return blklist;
 }
 
-bool read_op(void *drvstate, uint8_t *buf, uint32_t block)
+static bool read_req(blkdev_t *dev, uint8_t *buf, uint32_t block)
 {
-    rd_state_t *state = (rd_state_t *)drvstate;
+    rd_state_t *state = (rd_state_t *)dev->drvstate;
 
     // Check if block in range
     if (block >= state->nblocks)
@@ -105,9 +104,9 @@ bool read_op(void *drvstate, uint8_t *buf, uint32_t block)
     return true;
 }
 
-bool write_op(void *drvstate, uint8_t *buf, uint32_t block)
+static bool write_req(blkdev_t *dev, uint8_t *buf, uint32_t block)
 {
-    rd_state_t *state = (rd_state_t *)drvstate;
+    rd_state_t *state = (rd_state_t *)dev->drvstate;
 
     // Check if block in range
     if (block >= state->nblocks)

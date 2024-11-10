@@ -211,7 +211,7 @@ static void block_chain_remove(block_t *bptr)
 // NOTE: operates only on the address list and doesn't update the size list
 static block_t *defrag_block(block_t *bptr)
 {
-    bool has_defragged = false;
+    // bool has_defragged = false;
 
     // Defragment left
     if (bptr->addrlst_prev != NULL)
@@ -220,7 +220,7 @@ static block_t *defrag_block(block_t *bptr)
         if ((block_t *)((char *)bptr->addrlst_prev +
                         bptr->addrlst_prev->size + sizeof(block_t)) == bptr)
         {
-            has_defragged = true;
+            // has_defragged = true;
 
             // Remove current block from block chain
             addrlst_remove(bptr);
@@ -243,7 +243,7 @@ static block_t *defrag_block(block_t *bptr)
         if ((block_t *)((char *)bptr + sizeof(block_t) + bptr->size) ==
             bptr->addrlst_next)
         {
-            has_defragged = true;
+            // has_defragged = true;
 
             // Extend current block
             bptr->size += sizeof(block_t) + bptr->addrlst_next->size;

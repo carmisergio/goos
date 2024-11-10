@@ -62,6 +62,8 @@ bool blkdev_register(blkdev_t dev)
     dllist_insert_tail(&dev_list, (void *)entry);
 
     kprintf("[BLKDEV] Device registered: %s (%d blocks)\n", dev.major, dev.nblocks);
+
+    return true;
 }
 
 blkdev_handle_t blkdev_get_handle(const char *major)
@@ -123,7 +125,7 @@ bool blkdev_read(uint8_t *buf, const blkdev_handle_t handle,
         return false;
 
     // Perform read operation
-    return dev->read_blk(dev->drvstate, buf, block);
+    return dev->read_blk(dev, buf, block);
 }
 
 bool blkdev_write(const uint8_t *buf, const blkdev_handle_t handle,
@@ -154,7 +156,7 @@ bool blkdev_write(const uint8_t *buf, const blkdev_handle_t handle,
         return false;
 
     // Perform read operation
-    return dev->write_blk(dev->drvstate, buf, block);
+    return dev->write_blk(dev, buf, block);
 }
 
 bool blkdev_media_changed(const blkdev_handle_t handle)
@@ -176,7 +178,7 @@ bool blkdev_media_changed(const blkdev_handle_t handle)
         return false;
 
     // Perform read operation
-    return dev->media_changed(dev->drvstate);
+    return dev->media_changed(dev);
 }
 
 /* Internal functions */

@@ -190,6 +190,55 @@ void test_ramdisk()
     blkdev_release_handle(handle);
 }
 
+void test_floppy()
+{
+
+    blkdev_handle_t handle = blkdev_get_handle("fd1");
+    if (handle == BLKDEV_HANDLE_NULL)
+    {
+        kprintf("Error getting handle!\n");
+        return;
+    }
+
+    kprintf("Handle: %d\n", handle);
+
+    uint8_t *buf = kalloc(BLOCK_SIZE);
+
+    // Write data
+    memset(buf, 0xFF, BLOCK_SIZE);
+    // for (size_t i = 0; i < nblocks; i++)
+    // {
+    // if (!blkdev_write(buf, handle, 0))
+    // {
+    //     kprintf("Write fail!\n");
+    //     return;
+    // }
+    // }
+    // memset(buf, 0x00, BLOCK_SIZE);
+
+    // clock_delay_ms(5000);
+
+    // Read data
+    for (int i = 0; i < 100; i++)
+    {
+        kprintf("Media changed: %d\n", blkdev_media_changed(handle));
+        if (!blkdev_read(buf, handle, i))
+        {
+            kprintf("Read fail!\n");
+            return;
+        }
+
+        // Result
+        for (size_t i = 0; i < BLOCK_SIZE; i++)
+        {
+            kprintf("%x ", buf[i]);
+        }
+        kprintf("\n");
+    }
+
+    blkdev_release_handle(handle);
+}
+
 /*
  * Main kernel entry point
  * Remember to initialize boot_info before calling this!
@@ -220,7 +269,9 @@ void kmain(multiboot_info_t *mbd)
 
     kprintf("BOOTED!\n");
 
-    // test_ramdisk();
+    blkdev_debug_devices();
+
+    test_floppy();
 
     // proc_ctx_t proc_ctx = {
     //     .eax = 0,
