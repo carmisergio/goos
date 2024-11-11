@@ -35,15 +35,15 @@ void dllist_insert_head(dllist_t *list, void *data);
  */
 void dllist_insert_tail(dllist_t *list, void *data);
 
-/*
- * Remove element from linked list
- */
-void dllist_remove(dllist_t *list, void *el);
+// /*
+//  * Remove element from linked list
+//  */
+// void dllist_remove(dllist_t *list, void *el);
 
-/*
- * Free all contents of list
- */
-void dllist_free(dllist_t *list);
+// /*
+//  * Free all contents of list
+//  */
+// void dllist_free(dllist_t *list);
 
 // Get list head
 static inline dllist_node_t *dllist_head(dllist_t *list)

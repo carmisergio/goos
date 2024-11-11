@@ -30,6 +30,9 @@
 #include "drivers/ramdisk.h"
 #include "drivers/cmos.h"
 #include "drivers/fdc.h"
+#include "fs/vfs.h"
+#include "fs/fat.h"
+#include "fs/path.h"
 
 // Boot information structure
 boot_info_t boot_info;
@@ -193,7 +196,7 @@ void test_ramdisk()
 void test_floppy()
 {
 
-    blkdev_handle_t handle = blkdev_get_handle("fd1");
+    blkdev_handle_t handle = blkdev_get_handle("fd0");
     if (handle == BLKDEV_HANDLE_NULL)
     {
         kprintf("Error getting handle!\n");
@@ -218,22 +221,27 @@ void test_floppy()
 
     // clock_delay_ms(5000);
 
-    // Read data
-    for (int i = 0; i < 100; i++)
+    while (true)
     {
-        kprintf("Media changed: %d\n", blkdev_media_changed(handle));
-        if (!blkdev_read(buf, handle, i))
+        // Read data
+        for (int i = 0; i < 100; i++)
         {
-            kprintf("Read fail!\n");
-            return;
+            kprintf("Media changed: %d\n", blkdev_media_changed(handle));
+            if (!blkdev_read(buf, handle, i))
+            {
+                kprintf("Read fail!\n");
+                return;
+            }
+
+            // Result
+            for (size_t i = 0; i < BLOCK_SIZE; i++)
+            {
+                kprintf("%x ", buf[i]);
+            }
+            kprintf("\n");
         }
 
-        // Result
-        for (size_t i = 0; i < BLOCK_SIZE; i++)
-        {
-            kprintf("%x ", buf[i]);
-        }
-        kprintf("\n");
+        clock_delay_ms(5000);
     }
 
     blkdev_release_handle(handle);
@@ -260,18 +268,50 @@ void kmain(multiboot_info_t *mbd)
     kbd_init();
     console_init_kbd();
     blkdev_init();
+    vfs_init();
 
     // Initialize drivers
     clock_init();
     kbdctl_init();
     sysreq_init();
     fdc_init();
+    fat_init();
 
     kprintf("BOOTED!\n");
 
-    blkdev_debug_devices();
+    // blkdev_debug_devices();
 
-    test_floppy();
+    // kalloc_dbg_block_chain();
+
+    // // Mount
+    // if (vfs_mount("fd0", 0, "fat"))
+    //     kprintf("Mount success!\n");
+    // else
+    //     kprintf("Mount failure!\n");
+
+    // // Unmount
+    // vfs_unmount(0);
+
+    // kalloc_dbg_block_chain();
+
+    while (true)
+    {
+        // Read name
+        console_write("Number: ", 8);
+        char buf[33];
+        int32_t n = console_readline(buf, 32);
+        buf[n] = '\0';
+        console_write("\n", 1);
+
+        char *input = buf;
+        char name[FILENAME_MAX + 1];
+        while (parse_path_filename(name, &input))
+        {
+            kprintf("Success: name = \"%s\"\n", name);
+        }
+    }
+
+    // test_floppy();
 
     // proc_ctx_t proc_ctx = {
     //     .eax = 0,

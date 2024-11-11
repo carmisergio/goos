@@ -44,7 +44,7 @@ run: $(KERNEL_BIN) $(FLOPPY_IMG) $(FLPB_IMG)
 	$(QEMU) -kernel $(KERNEL_BIN) -fda $(FLOPPY_IMG) -fdb $(FLPB_IMG) -m 16M
 
 # Run compiled rernel with QEMU in debug mode
-debug: $(KERNEL_BIN)
+debug: $(KERNEL_BIN) $(FLOPPY_IMG) $(FLPB_IMG)
 	$(SCRIPTS_DIR)/debug.sh $(KERNEL_BIN)
 	
 # Write generated floppy image with Greaseweazle

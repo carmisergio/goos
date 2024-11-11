@@ -68,6 +68,18 @@ bool blkdev_read(uint8_t *buf, const blkdev_handle_t handle,
                  const uint32_t block);
 
 /*
+ * Read n contiguous blocks from block device
+ * #### Parameters:
+ *   - buf: buffer to read into
+ *   - handle: block device handle
+ *   - start: logical block ID to start reading from
+ *   - n: number of blocks to read
+ * #### Returns: true on success
+ */
+bool blkdev_read_n(uint8_t *buf, const blkdev_handle_t handle,
+                   const uint32_t start, const uint32_t n);
+
+/*
  * Write block to block device
  * #### Parameters:
  *   - buf: buffer to write

@@ -87,14 +87,25 @@ blkdev_handle_t blkdev_get_handle(const char *major)
     handles[idx].devlst_entry = dev;
     dev->used = true;
 
+#ifdef DEBUG
+    kdbg("[BLKDEV] Got handle for device %s: %d\n", major, handle);
+#endif
+
     return handle;
 }
 
 void blkdev_release_handle(blkdev_handle_t handle)
 {
+    if (handle == BLKDEV_HANDLE_NULL)
+        return;
+
     size_t idx = handle_to_index(handle);
     handles[idx].used = false;
     handles[idx].devlst_entry->used = false;
+
+#ifdef DEBUG
+    kdbg("[BLKDEV] Released handle %d\n", handle);
+#endif
 }
 
 bool blkdev_read(uint8_t *buf, const blkdev_handle_t handle,
@@ -126,6 +137,18 @@ bool blkdev_read(uint8_t *buf, const blkdev_handle_t handle,
 
     // Perform read operation
     return dev->read_blk(dev, buf, block);
+}
+
+bool blkdev_read_n(uint8_t *buf, const blkdev_handle_t handle,
+                   const uint32_t start, const uint32_t n)
+{
+    for (uint32_t i = 0; i < n; i++)
+    {
+        if (!blkdev_read(buf + i * BLOCK_SIZE, handle, start + i))
+            return false;
+    }
+
+    return true;
 }
 
 bool blkdev_write(const uint8_t *buf, const blkdev_handle_t handle,

@@ -46,34 +46,38 @@ void dllist_insert_tail(dllist_t *list, void *data)
         list->head = node;
 }
 
-void dllist_remove(dllist_t *list, void *el)
-{
-    // Find node
-    dllist_node_t *node = find_element(list, el);
-    if (node == NULL)
-        return;
+// void *dllist_remove(dllist_t *list, void *el)
+// {
+//     // Find node
+//     dllist_node_t *node = find_element(list, el);
+//     if (node == NULL)
+//         return;
 
-    // Remove from list
-    remove_node(list, node);
+//     void *data = node->data;
 
-    // Free node
-    kfree(node);
-}
+//     // Remove from list
+//     remove_node(list, node);
 
-void dllist_free(dllist_t *list)
-{
-    dllist_node_t *cur = list->head;
-    dllist_node_t *next = cur;
-    while (cur != NULL)
-    {
-        next = cur->next;
+//     // Free node
+//     kfree(node);
 
-        // Free node
-        kfree(cur);
+//     return data;
+// }
 
-        cur = next;
-    }
-}
+// void dllist_free(dllist_t *list)
+// {
+//     dllist_node_t *cur = list->head;
+//     dllist_node_t *next = cur;
+//     while (cur != NULL)
+//     {
+//         next = cur->next;
+
+//         // Free node
+//         kfree(cur);
+
+//         cur = next;
+//     }
+// }
 
 /* Internal functions */
 dllist_node_t *find_element(dllist_t *list, void *el)
@@ -102,3 +106,5 @@ void remove_node(dllist_t *list, dllist_node_t *node)
     else
         list->tail = node->prev;
 }
+
+// TODO: handle kalloc failures!

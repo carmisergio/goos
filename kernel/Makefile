@@ -55,6 +55,9 @@ $(SRC)/syscall/go_user.o \
 $(SRC)/syscall/syscall.o \
 $(SRC)/proc/proc.o \
 $(SRC)/blkdev/blkdev.o \
+$(SRC)/fs/vfs.o \
+$(SRC)/fs/fat.o \
+$(SRC)/fs/path.o \
 
 KLIBC_OBJS =\
 klibc/string.o \

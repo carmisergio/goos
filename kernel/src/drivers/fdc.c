@@ -14,13 +14,14 @@
 #include "clock.h"
 #include "blkdev/blkdev.h"
 
-#define DEBUG
+// #define DEBUG
 
-#define CMD_TIMEOUT 50
+#define CMD_TIMEOUT 100
 #define CMD_RETRIES 3
-#define RW_TIMEOUT 3000
+#define RW_TIMEOUT 5000
 #define RW_RETRIES 5
 #define MOTOR_OFF_DELAY 2000
+#define MOTOR_SPINUP_TIME 300
 
 // Geometry
 #define CYLS 80
@@ -28,9 +29,9 @@
 #define SECTORS 18
 #define SECTOR_SIZE 512 // bytes
 
-#define SRT 12 // 4ms
-#define HLT 5  // 10ms
-#define HUT 0  // Maximum
+#define SRT 8 // 4ms
+#define HLT 5 // 10ms
+#define HUT 0 // Maximum
 
 #define FLOPPY_IRQ 6
 
@@ -221,6 +222,7 @@ static bool write_req(blkdev_t *dev, uint8_t *buf, uint32_t block);
 static bool media_changed_req(blkdev_t *dev);
 static bool access_drive(fdc_drv_state_t *state);
 static void unaccess_drive(fdc_drv_state_t *state);
+static void destroy_state(fdc_drv_state_t *state);
 static bool wait_irq6_timeout(uint32_t timeout);
 static inline void lba_to_chs(uint8_t *c, uint8_t *h, uint8_t *s,
                               uint32_t lba);
@@ -238,7 +240,9 @@ void fdc_init()
     // Initialize controller
     if (!do_fdc_init())
     {
-        kprintf("[FDC] Error initializing FDC!\n");
+#ifdef DEBUG
+        kprintf("[FDC] Error initializing FDC\n");
+#endif
         interrupts_unregister_irq(FLOPPY_IRQ, irq6_handler);
         return;
     }
@@ -285,6 +289,10 @@ static bool do_fdc_init()
         if (ver != 0x80 && ver != 0x90)
             return false;
 
+        // Unlock configuration
+        if (!cmd_set_lock(false))
+            continue;
+
         // Configure
         if (!cmd_configure(true, true, false, 8, 0))
             continue;
@@ -292,9 +300,6 @@ static bool do_fdc_init()
         // Lock configuration
         if (!cmd_set_lock(true))
             continue;
-
-        // Set data rate
-        write_dsr(DATARATE_500KBPS);
 
         // Initialization successful
         return true;
@@ -315,13 +320,19 @@ static void identify_drives(uint8_t *typa, uint8_t *typb)
 static void init_drive(drive_t drv)
 {
 #ifdef DEBUG
+    char *failure = NULL;
     kprintf("[FDC] Initializing drive %d\n", drv);
 #endif
 
     // Allocate drive state
     fdc_drv_state_t *state = kalloc(sizeof(fdc_drv_state_t));
     if (!state)
+    {
+#ifdef DEBUG
+        failure = "out of memory";
+#endif
         goto fail_nomem_state;
+    }
 
     // Set up state
     slock_init(&state->drv_lck);
@@ -349,13 +360,36 @@ static void init_drive(drive_t drv)
         reset();
     }
 
+    // kprintf("Initialized\n");
+
+    // clock_delay_ms(1000);
+
+    // // Seek to track 79
+    // if (!cmd_seek(drv, 79))
+    //     kprintf("Seek error!\n");
+
+    // kprintf("Seek OK!\n");
+
+    // clock_delay_ms(1000);
+
+    // // Seek back home
+    // if (!cmd_seek(drv, 0))
+    //     kprintf("Seek error!\n");
+
+    // kprintf("Seek OK!\n");
+
     unaccess_drive(state);
 
     slock_release(&state->drv_lck);
 
     // Check if initialization was succesful
     if (!succ)
+    {
+#ifdef DEBUG
+        failure = "drive communication error";
+#endif
         goto fail_drvfail;
+    }
 
     // Drive is correctly set up, register it with the block device subsytem
 
@@ -363,7 +397,12 @@ static void init_drive(drive_t drv)
     size_t major_len = snprintf(NULL, 0, "fd%d", drv) + 1;
     char *major = kalloc(major_len);
     if (!major)
+    {
+#ifdef DEBUG
+        failure = "out of memory";
+#endif
         goto fail_nomem_major;
+    }
     snprintf(major, major_len, "fd%d", drv);
 
     // Set up block device
@@ -378,7 +417,12 @@ static void init_drive(drive_t drv)
 
     // Register block device
     if (!blkdev_register(blkdev))
+    {
+#ifdef DEBUG
+        failure = "unable to register block device";
+#endif
         goto fail_blkdevreg;
+    }
 
     goto success;
 
@@ -387,10 +431,14 @@ fail_blkdevreg:
     // Deallocate major string
     kfree(major);
 fail_nomem_major:
-    // kfree(state); // Can't do it because there might still be a timer active
 fail_drvfail:
+    // Get drive in a quiet state, then deallocate the state object
+    destroy_state(state);
 fail_nomem_state:
-    kprintf("[FDC] Error initializing drive %d\n", drv);
+
+#ifdef DEBUG
+    kprintf("[FDC] Drive %d initialization error: %s\n", drv, failure);
+#endif
 success:
 }
 
@@ -614,6 +662,8 @@ static bool cmd_specify(uint8_t srt, uint8_t hut, uint8_t hlt, bool pio_mode)
 // Recalibrate command
 static bool cmd_recalibrate(drive_t drive)
 {
+    irq6_received = false;
+
     // Send command
     if (!send_byte(CMD_RECALIBRATE))
         return false;
@@ -632,12 +682,20 @@ static bool cmd_recalibrate(drive_t drive)
     if (!cmd_sense_interrupt(&st0, &cyl))
         return false;
 
+#ifdef DEBUG
+    kprintf("[FDC] Recalibrate result:\n");
+    kprintf("ST0: IC=%d, SE=%d, EC=%d, H=%d, DS=%x\n", st0.ic, st0.se, st0.ec, st0.h, st0.ds);
+    kprintf("Cylinder: %d\n", cyl);
+#endif
+
     return st0.ic == ST0_IC_SUCC && st0.se && cyl == 0;
 }
 
 // Seek command
 static bool cmd_seek(drive_t drive, uint8_t cyl)
 {
+    irq6_received = false;
+
     // Send command
     if (!send_byte(CMD_SEEK))
         return false;
@@ -866,9 +924,16 @@ static bool reset()
     dor.not_reset = 0;
     write_dor(dor);
 
+    // Few microsecond delay
+    for (int i = 0; i < 10; i++)
+        io_delay();
+
     // Enable controller
     dor.not_reset = 1;
     write_dor(dor);
+
+    // Set data rate
+    // write_dsr(DATARATE_500KBPS);
 
     // Wait for ir6
     if (!wait_irq6_timeout(1000))
@@ -895,16 +960,25 @@ static bool access_drive(fdc_drv_state_t *state)
     // Select the drive
     select_drive(state->drive);
 
-    // Turn on motor if necessary
-    if (!state->motor_on)
-    {
-        set_motor_state(state->drive, true);
-        state->motor_on = true;
-    }
+    // Turn on motor
+    set_motor_state(state->drive, true);
 
-    // Send specify
-    if (!cmd_specify(SRT, HUT, HLT, true)) // Enable PIO mode
+    // Set data rate
+    write_dsr(DATARATE_500KBPS);
+
+    // Wait for spinup if motor was not already on
+    // if (!state->motor_on)
+    //     clock_delay_ms(MOTOR_SPINUP_TIME);
+    state->motor_on = true;
+
+    // Send specify (Enable PIO mode)
+    if (!cmd_specify(SRT, HUT, HLT, true))
+    {
+#ifdef DEBUG
+        kprintf("[FDC] Specify error\n");
+#endif
         return false;
+    }
 
     return true;
 }
@@ -956,13 +1030,16 @@ static bool read_req(blkdev_t *dev, uint8_t *buf, uint32_t block)
         if (!access_drive(state))
             goto reset;
 
+        // Set up datarate
+        write_dsr(DATARATE_500KBPS);
+
         // Check media changed
         if (check_media_changed(state->drive))
             state->media_changed = true;
 
-        // // Seek to cylinder
-        // if (!cmd_seek(state->drive, 0))
-        //     goto reset;
+        // Seek to cylinder
+        if (!cmd_seek(state->drive, cyl))
+            goto reset;
         // NOTE: we don't need to seek explicitly thanks to implied seek
 
         // Do read
@@ -1066,6 +1143,23 @@ static inline void lba_to_chs(uint8_t *c, uint8_t *h, uint8_t *s,
     *c = lba / (HEADS * SECTORS);
     *h = ((lba % (HEADS * SECTORS)) / SECTORS);
     *s = ((lba % (HEADS * SECTORS)) % SECTORS + 1);
+}
+
+// Destroy state, handling all potential cases
+static void destroy_state(fdc_drv_state_t *state)
+{
+    // Acquire device lock
+    slock_acquire(&state->drv_lck);
+
+    // Delete motor timer
+    if (state->has_motor_timer)
+        clock_clear_timer(state->motor_timer);
+
+    // Stop motor
+    set_motor_state(state->drive, false);
+
+    // Deallocate state
+    kfree(state);
 }
 
 bool wait_irq6_timeout(uint32_t timeout)
