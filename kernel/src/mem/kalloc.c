@@ -74,6 +74,10 @@ void *kalloc(size_t n)
     if (n < MIN_ALLOC)
         n = MIN_ALLOC;
 
+#ifdef DEBUG
+    kdbg("[KALLOC] Allocating: %d bytes\n", n);
+#endif
+
     // Find suitable block in size list
     block_t *bptr = get_block(n);
 
@@ -126,6 +130,9 @@ void *kalloc(size_t n)
 
 void kfree(void *ptr)
 {
+#ifdef DEBUG
+    kdbg("[KALLOC] Freeing: %d bytes\n", mptr_to_bptr(ptr)->size);
+#endif
     // Add block to block chain
     block_chain_insert(mptr_to_bptr(ptr));
 }

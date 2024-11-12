@@ -279,20 +279,22 @@ void kmain(multiboot_info_t *mbd)
 
     kprintf("BOOTED!\n");
 
-    // blkdev_debug_devices();
+    blkdev_debug_devices();
 
-    // kalloc_dbg_block_chain();
+    kalloc_dbg_block_chain();
 
-    // // Mount
-    // if (vfs_mount("fd0", 0, "fat"))
-    //     kprintf("Mount success!\n");
-    // else
-    //     kprintf("Mount failure!\n");
+    // Mount
+    if (vfs_mount("fd0", 0, "fat") >= 0)
+        kprintf("Mount success!\n");
+    else
+        kprintf("Mount failure!\n");
 
-    // // Unmount
-    // vfs_unmount(0);
+    kalloc_dbg_block_chain();
 
-    // kalloc_dbg_block_chain();
+    // Unmount
+    vfs_unmount(0);
+
+    kalloc_dbg_block_chain();
 
     while (true)
     {
@@ -305,6 +307,15 @@ void kmain(multiboot_info_t *mbd)
 
         char *input = buf;
         char name[FILENAME_MAX + 1];
+
+        mount_point_t mp;
+        if (!parse_path_mountpoint(&mp, &input))
+        {
+            continue;
+        }
+
+        kprintf("Mountpiont: %d\n", mp);
+
         while (parse_path_filename(name, &input))
         {
             kprintf("Success: name = \"%s\"\n", name);

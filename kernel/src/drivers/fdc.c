@@ -783,8 +783,6 @@ static bool cmd_read_sector(uint8_t *buf, drive_t drive, uint8_t cyl, uint8_t he
         bytes_read++;
     }
 
-    kdbg("here2\n");
-
     //// Wait for buffer overrun
     // while (true)
     // {

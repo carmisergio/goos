@@ -1,26 +1,35 @@
 #pragma once
 
 #include <stdint.h>
-#include <stddef.h>;
+#include <stddef.h>
 #include <stdbool.h>
 
 // Limits for filename and path
 #define FILENAME_MAX 32
 #define PATH_MAX 1024
 
+// Filesystem errors
+#define VFS_EUNKNOWN -1   // Unknown error
+#define VFS_ENOIMPL -2    // Not implemented
+#define VFS_ENOENT -3     // No such file or directory
+#define VFS_EBUSY -4      // Busy
+#define VFS_ETOOMANY -5   // Too many
+#define VFS_ENOMP -6      // No mountpoint
+#define VFS_ENOFS -7      // No filesystem
+#define VFS_EWRONGTYPE -8 // Wrong type
+
 // Mount point number
 typedef uint32_t mount_point_t;
 
 // VFS file handle
-typedef uint32_t vfs_file_t;
-
-#define VFS_FILE_NULL 0;
+typedef int32_t vfs_file_handle_t;
 
 // File open options
 typedef uint32_t fopts;
 
 // File open options
-#define FOPT_DIR (1 << 0);
+#define FOPT_DIR (1 << 0)   // Want directory from open()
+#define FOPT_WRITE (1 << 1) // Want to be able to write to file
 
 // Inode type
 typedef enum
@@ -34,7 +43,7 @@ typedef struct
 {
     char name[FILENAME_MAX + 1]; // NULL terminated file name
     vfs_inode_type_t type;       // File or directory
-                                 //
+    uint32_t size;               // Size of file
 } vfs_dirent_t;
 
 // VFS inode
@@ -42,27 +51,31 @@ typedef struct
 typedef struct _vfs_inode_t vfs_inode_t;
 struct _vfs_inode_t
 {
-    char *name;            // Filename
-    vfs_inode_type_t type; // Type of inode
-    void *priv_data;       // Filesystem private data
-    void *fs_state;        // Mountpoint private state
+    char name[FILENAME_MAX + 1]; // Filename
+    uint32_t size;               // File size
+    vfs_inode_type_t type;       // Type of inode
+    void *priv_data;             // Filesystem private data
+    void *fs_state;              // Mountpoint private state
+
+    // Unique identifiying information
+    uint32_t id; // Unique identifier inside the mount point
 
     // Read data from inode
-    // uint32_t read(vfs_inode_t *inode, uint32_t offset, uint32_t length, uint8_t *buf)
-    uint32_t (*read)(vfs_inode_t *, uint32_t, uint32_t, uint8_t *);
+    // uint32_t read(vfs_inode_t *inode, uint8_t *buf, uint32_t offset, uint32_t length)
+    int64_t (*read)(vfs_inode_t *, uint8_t *, uint32_t, uint32_t);
 
     // Write data to inode
-    // uint32_t write(vfs_inode_t *inode, uint32_t offset, uint32_t length, uint8_t *buf)
-    uint32_t (*write)(vfs_inode_t *, uint32_t, uint32_t, uint8_t *);
+    // uint32_t write(vfs_inode_t *inode, uint8_t *buf, uint32_t offset, uint32_t length
+    int64_t (*write)(vfs_inode_t *, uint8_t *, uint32_t, uint32_t);
     //
     // List dirents children of inode
-    // uint32_t readdir(vfs_inode_t *inode, uint32_t offset, uint32_t n, vfs_dirent_t *buf);
+    // uint32_t readdir(vfs_inode_t *inode, vfs_dirent_t *buf, uint32_t offset, uint32_t n);
     // Returns the number of dirents read (if less than n, no more dirents to read)
-    uint32_t (*readdir)(vfs_inode_t *, uint32_t, uint32_t, vfs_dirent_t *);
+    int64_t (*readdir)(vfs_inode_t *, vfs_dirent_t *, uint32_t, uint32_t);
 
     // Lookup child in directory inode by name
     // vfs_inode_t *lookup(vfs_inode_t *inode, char *name)
-    vfs_inode_t (*lookup)(vfs_inode_t *, char *);
+    vfs_inode_t *(*lookup)(vfs_inode_t *, char *);
 
     // Destroy inode
     // Deallocate inode and any private data
@@ -92,16 +105,9 @@ typedef struct
 
     // Mount operation
     // vfs_superblock_t mount(char *device, vfs_superblock_t **mount)
-    bool (*mount)(char *, vfs_superblock_t **);
+    int32_t (*mount)(char *, vfs_superblock_t **);
 
 } vfs_fs_type_t;
-
-// VFS file
-typedef struct
-{
-    vfs_file_t handle;  // File handle
-    vfs_inode_t *inode; // Associated inode
-} vfs_file_slot_t;
 
 /*
  * Initialize VFS
@@ -124,28 +130,48 @@ bool vfs_register_fs_type(vfs_fs_type_t fs_type);
  *   - mp: mount point number
  *   - fs: file system type
  * #### Returns
- *   true on success
+ *   0 on success, otherwise a negative value indicating the error
  */
-bool vfs_mount(char *dev, mount_point_t mp, char *fs);
+int32_t vfs_mount(char *dev, mount_point_t mp, char *fs);
 
 /*
  * Unmount filesystem
  * #### Parameters
  *   - mp: mount point number
  * #### Returns
- *   true on success
+ *   0 on success, otherwise a negative value indicating the error
  */
-bool vfs_unmount(mount_point_t mp);
+int32_t vfs_unmount(mount_point_t mp);
 
 //////// File handling functions
 
 /*
- * Open filesystem file or directory
+ * Open VFS file
  * If FOPT_DIR is not passed, fails if it finds a directory,
  * else fail if it is a file.
  * #### Parameters
  *   - path: file path
  *   - opt: file open options
- * ####
+ * #### Returns
+ *    file handle (>= 0) on success, else error
  */
-vfs_file_t vfs_open(char *path, fopts opt);
+vfs_file_handle_t vfs_open(char *path, fopts opt);
+
+/*
+ * Close VFS file
+ * #### Parameters
+ *  - file: VFS file handle
+ */
+void vfs_close(vfs_file_handle_t file);
+
+/*
+ * Read entries from a directory
+ * #### Parameters
+ *  - file: VFS file handle of the directory
+ *  - buf: buffer to place the directory entries
+ *  - offset: offset from the start of the directory IN ENTRIES (not bytes)
+ *  - n: max number of direcories to read IN ENTRIES (not bytes)
+ * #### Returns
+ *    number of directory entries read (>= 0) on success, else error
+ */
+int64_t vfs_readdir(vfs_file_handle_t file, vfs_dirent_t *buf, uint32_t offset, uint32_t n);
