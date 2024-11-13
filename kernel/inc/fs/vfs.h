@@ -17,6 +17,9 @@
 #define VFS_ENOMP -6      // No mountpoint
 #define VFS_ENOFS -7      // No filesystem
 #define VFS_EWRONGTYPE -8 // Wrong type
+#define VFS_EIOERR -9     // I/O error
+#define VFS_ENOMEM -10    // Out of memory
+#define VFS_EINCON -11    // Filesystem inconsistency
 
 // Mount point number
 typedef uint32_t mount_point_t;
@@ -57,6 +60,9 @@ struct _vfs_inode_t
     void *priv_data;             // Filesystem private data
     void *fs_state;              // Mountpoint private state
 
+    // Reference to parent inode
+    // vfs_inode_t *parent;
+
     // Unique identifiying information
     uint32_t id; // Unique identifier inside the mount point
 
@@ -74,8 +80,8 @@ struct _vfs_inode_t
     int64_t (*readdir)(vfs_inode_t *, vfs_dirent_t *, uint32_t, uint32_t);
 
     // Lookup child in directory inode by name
-    // vfs_inode_t *lookup(vfs_inode_t *inode, char *name)
-    vfs_inode_t *(*lookup)(vfs_inode_t *, char *);
+    // vfs_inode_t *lookup(vfs_inode_t *inode, vfs_inode_t**res, char *name)
+    int32_t (*lookup)(vfs_inode_t *, vfs_inode_t **, char *);
 
     // Destroy inode
     // Deallocate inode and any private data
@@ -173,5 +179,19 @@ void vfs_close(vfs_file_handle_t file);
  *  - n: max number of direcories to read IN ENTRIES (not bytes)
  * #### Returns
  *    number of directory entries read (>= 0) on success, else error
+ *    If the number returned is < n, there are no more directories to read
  */
 int64_t vfs_readdir(vfs_file_handle_t file, vfs_dirent_t *buf, uint32_t offset, uint32_t n);
+
+/*
+ * Read data from a file
+ * #### Parameters
+ *  - file: VFS file handle of the file
+ *  - buf: buffer to read inot
+ *  - offset: offset from the start of the file in bytes
+ *  - n: max number of bytes to read
+ * #### Returns
+ *    number of bytes read (>= 0) on success, else error
+ *    If the number returned is < n, there are no more bytes to read
+ */
+int64_t vfs_read(vfs_file_handle_t file, uint8_t *buf, uint32_t offset, uint32_t n);

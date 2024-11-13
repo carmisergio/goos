@@ -8,7 +8,7 @@
 #include "log.h"
 #include "panic.h"
 
-#define DEBUG
+// #define DEBUG
 
 // Number of memory pages allocted initially
 #define INITIAL_PAGES 2

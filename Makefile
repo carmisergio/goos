@@ -37,7 +37,8 @@ $(FLOPPY_IMG): $(KERNEL_BIN) $(PROGRAMS_BIN)
 	
 # Dummy floppy image
 $(FLPB_IMG): FORCE
-	dd if=/dev/zero of=$@ bs=512 count=2880
+	rm -f $@
+	mkfs.msdos -C $@ 1440
 
 # Run compiled rernel with QEMU
 run: $(KERNEL_BIN) $(FLOPPY_IMG) $(FLPB_IMG)

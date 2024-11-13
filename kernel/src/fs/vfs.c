@@ -28,12 +28,14 @@ static bool is_filesystem_busy(mount_point_t mp);
 static vfs_file_handle_t find_free_file_slot();
 static int32_t find_file_by_inode_id(mount_point_t mp, uint32_t id);
 static bool compare_inodes(vfs_inode_t *a, vfs_inode_t *b);
-static vfs_inode_t *lookup_path(vfs_inode_t *root, char *path);
+static int32_t lookup_path(vfs_inode_t **res, vfs_inode_t *root, char *path);
 static void superblock_unmount(vfs_superblock_t *sb);
-static vfs_inode_t *inode_lookup(vfs_inode_t *inode, char *file_name);
+static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, char *file_name);
 static void inode_destroy(vfs_inode_t *inode);
 static int64_t inode_readdir(vfs_inode_t *inode, vfs_dirent_t *buf,
                              uint32_t offset, uint32_t n);
+static int64_t inode_read(vfs_inode_t *inode, uint8_t *buf,
+                          uint32_t offset, uint32_t n);
 
 // Global objects
 dllist_t fs_types;
@@ -133,9 +135,10 @@ vfs_file_handle_t vfs_open(char *path, fopts opt)
         return VFS_ENOENT;
 
     // Find inode for this path
-    vfs_inode_t *inode = lookup_path(mount_points[mp]->root, path);
-    if (!inode)
-        return VFS_ENOENT;
+    vfs_inode_t *inode;
+    int32_t res = lookup_path(&inode, mount_points[mp]->root, path);
+    if (res < 0)
+        return res;
 
     // Check if file is of the desired type
     if (opt & FOPT_DIR)
@@ -150,7 +153,7 @@ vfs_file_handle_t vfs_open(char *path, fopts opt)
     else
     {
         // Want a file
-        if (inode->type == VFS_INTYPE_FILE)
+        if (inode->type == VFS_INTYPE_DIR)
         {
             ret = VFS_EWRONGTYPE;
             goto fail;
@@ -239,6 +242,19 @@ int64_t vfs_readdir(vfs_file_handle_t file, vfs_dirent_t *buf, uint32_t offset, 
     return inode_readdir(inode, buf, offset, n);
 }
 
+int64_t vfs_read(vfs_file_handle_t file, uint8_t *buf, uint32_t offset, uint32_t n)
+{
+    // Check if file is valid and open
+    if (file >= MAX_FILES || open_files[file].ref_count == 0)
+        return VFS_ENOENT;
+
+    // Get inode from file
+    vfs_inode_t *inode = open_files[file].inode;
+
+    // Perform read
+    return inode_read(inode, buf, offset, n);
+}
+
 /* Internal functions */
 static vfs_fs_type_t *find_fs_type(const char *name)
 {
@@ -307,7 +323,8 @@ static int32_t find_file_by_inode_id(mount_point_t mp, uint32_t id)
 }
 
 // Find inode for a certain absolute path
-static vfs_inode_t *lookup_path(vfs_inode_t *root, char *path)
+// Returns 0 on success
+static int32_t lookup_path(vfs_inode_t **res, vfs_inode_t *root, char *path)
 {
     vfs_inode_t *cur_inode = root;
 
@@ -316,10 +333,10 @@ static vfs_inode_t *lookup_path(vfs_inode_t *root, char *path)
     while (parse_path_filename(file_name, &path))
     {
         // Look up child inode
-        vfs_inode_t *child = inode_lookup(cur_inode, file_name);
-        if (!child)
-            // No such file or directory
-            return NULL;
+        vfs_inode_t *child;
+        int32_t res;
+        if ((res = inode_lookup(cur_inode, &child, file_name)) < 0)
+            return res;
 
         // Destroy current inode (if it's not the root inode)
         if (cur_inode != root)
@@ -328,7 +345,10 @@ static vfs_inode_t *lookup_path(vfs_inode_t *root, char *path)
         cur_inode = child;
     }
 
-    return cur_inode;
+    // Return result
+    *res = cur_inode;
+
+    return 0;
 }
 
 static void superblock_unmount(vfs_superblock_t *sb)
@@ -339,12 +359,12 @@ static void superblock_unmount(vfs_superblock_t *sb)
     sb->unmount(sb);
 }
 
-static vfs_inode_t *inode_lookup(vfs_inode_t *inode, char *file_name)
+static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, char *file_name)
 {
     if (!inode->lookup)
-        return NULL;
+        return VFS_ENOIMPL;
 
-    return inode->lookup(inode, file_name);
+    return inode->lookup(inode, res, file_name);
 }
 
 static void inode_destroy(vfs_inode_t *inode)
@@ -363,4 +383,13 @@ static int64_t inode_readdir(vfs_inode_t *inode, vfs_dirent_t *buf,
         return VFS_ENOIMPL;
 
     return inode->readdir(inode, buf, offset, n);
+}
+
+static int64_t inode_read(vfs_inode_t *inode, uint8_t *buf,
+                          uint32_t offset, uint32_t n)
+{
+    if (!inode->read)
+        return VFS_ENOIMPL;
+
+    return inode->read(inode, buf, offset, n);
 }

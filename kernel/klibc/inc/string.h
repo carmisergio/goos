@@ -13,6 +13,7 @@ extern "C"
     void *memset(void *s, int c, size_t n);
     size_t strlen(const char *str);
     int strcmp(const char *p1, const char *p2);
+    char *strcpy(char *dst, const char *src);
 
 #ifdef __cplusplus
 }

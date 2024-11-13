@@ -1,10 +1,13 @@
 #include "fs/fat.h"
 
+#include <string.h>
+
 #include "fs/vfs.h"
 #include "log.h"
 #include "blkdev/blkdev.h"
 #include "mem/kalloc.h"
 #include "panic.h"
+#include "console/console.h"
 
 #define DEBUG
 
@@ -42,12 +45,12 @@ typedef struct __attribute__((packed))
 
     union
     {
-        struct
+        struct __attribute__((packed))
         {
             uint8_t s_name[8];
             uint8_t s_ext[3];
         };
-        struct
+        struct __attribute__((packed))
         {
             uint8_t l_order;
             uint16_t l_name1[5];
@@ -58,7 +61,7 @@ typedef struct __attribute__((packed))
 
     union
     {
-        struct
+        struct __attribute__((packed))
         {
             uint8_t _s_res0;
             uint8_t s_creation_time_fine;
@@ -71,23 +74,23 @@ typedef struct __attribute__((packed))
             uint16_t s_fat_entry_low;
             uint32_t s_size;
         };
-        struct
+        struct __attribute__((packed))
         {
             uint8_t l_type;
             uint8_t l_checksum;
             uint16_t l_name2[6];
-            uint8_t _l_zero0;
-            uint16_t l_name3[3];
+            uint16_t _l_zero0;
+            uint16_t l_name3[2];
         };
     };
 } fat_dir_entry_t;
 
-#define ATTR_RO 0x01;
-#define ATTR_HIDDEN 0x02;
-#define ATTR_SYSTEM 0x04;
-#define ATTR_VOLID 0x08;
-#define ATTR_DIR 0x10;
-#define ATTR_ARCHIVE 0x20;
+#define ATTR_RO 0x01
+#define ATTR_HIDDEN 0x02
+#define ATTR_SYSTEM 0x04
+#define ATTR_VOLID 0x08
+#define ATTR_DIR 0x10
+#define ATTR_ARCHIVE 0x20
 #define ATTR_LFN (ATTR_RO | ATTR_HIDDEN | ATTR_SYSTEM | ATTR_VOLID)
 
 // FAT filesystem private state
@@ -95,7 +98,10 @@ typedef struct
 {
     blkdev_handle_t dev_handle;
     bpb_t bpb;
-    uint8_t *fat_cache; // Cached File Allocation Table
+
+    // Buffers
+    uint8_t *fat_cache; // FAT cache
+    uint8_t *io_buf;    // I/O buffer
 
     // Useful information
     uint32_t data_start; // Data starting sector
@@ -109,15 +115,29 @@ typedef struct
 } inode_private_t;
 
 // Internal functions
-int32_t fs_type_mount(char *dev, vfs_superblock_t **mount);
-bool read_bpb(fs_state_t *fs_state);
-bool read_fat_cache(fs_state_t *fs_state);
-void superblock_unmount(vfs_superblock_t *mount);
-void inode_destroy(vfs_inode_t *inode);
-bool check_fat_magically(bpb_t *bpb);
-uint32_t total_sectors(bpb_t *bbp);
-void destroy_fs_state(fs_state_t *state);
-vfs_inode_t *get_root_inode(fs_state_t *fs_state);
+static int32_t fs_type_mount(char *dev, vfs_superblock_t **mount);
+static bool read_bpb(fs_state_t *fs_state);
+static bool read_fat_cache(fs_state_t *fs_state);
+static void superblock_unmount(vfs_superblock_t *mount);
+static void inode_destroy(vfs_inode_t *inode);
+static bool check_fat_magically(bpb_t *bpb);
+static uint32_t total_sectors(bpb_t *bbp);
+static void destroy_fs_state(fs_state_t *state);
+static vfs_inode_t *get_root_inode(fs_state_t *fs_state);
+static int64_t inode_readdir(vfs_inode_t *inode, vfs_dirent_t *buf,
+                             uint32_t offset, uint32_t n);
+static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, char *name);
+static int64_t inode_read(vfs_inode_t *inode, uint8_t *buf,
+                          uint32_t offset, uint32_t n);
+static void direntry_name_from_short(char *name, fat_dir_entry_t *entry);
+static void direntry_process_lfn(char *name, fat_dir_entry_t *entry);
+static inline uint32_t nblocks(uint32_t size);
+static void free_inode_pdata(inode_private_t *pdata);
+static uint32_t follow_sector_chain(uint32_t *sector_list,
+                                    fs_state_t *fs_state, uint32_t start_cluster);
+static bool read_fat_entry(uint32_t *entry, fs_state_t *fs_state, uint32_t cluster);
+static uint32_t cluster_start_sector(fs_state_t *fs_state, uint32_t cluster);
+static uint32_t dbg_sector_list(vfs_inode_t *inode);
 
 void fat_init()
 {
@@ -132,7 +152,8 @@ void fat_init()
 }
 
 /* Internal functions */
-int32_t fs_type_mount(char *dev, vfs_superblock_t **superblock)
+
+static int32_t fs_type_mount(char *dev, vfs_superblock_t **superblock)
 {
     kprintf("[FAT] Mounting device %s\n", dev);
 
@@ -152,6 +173,10 @@ int32_t fs_type_mount(char *dev, vfs_superblock_t **superblock)
     // Initialize state
     fs_state->dev_handle = dev_handle;
     fs_state->fat_cache = NULL;
+
+    // Allocate read buffer
+    if (!(fs_state->io_buf = kalloc(BLOCK_SIZE)))
+        goto fail;
 
     // Read BIOS parameter block
     if (!read_bpb(fs_state))
@@ -192,7 +217,7 @@ fail_nostate:
     return VFS_EUNKNOWN;
 }
 
-void superblock_unmount(vfs_superblock_t *superblock)
+static void superblock_unmount(vfs_superblock_t *superblock)
 {
     fs_state_t *state = superblock->fs_state;
 
@@ -210,20 +235,15 @@ void superblock_unmount(vfs_superblock_t *superblock)
 }
 
 // Read Bios Parameter Block values into the filesystem state
-bool read_bpb(fs_state_t *fs_state)
+static bool read_bpb(fs_state_t *fs_state)
 {
-    // Allocate read buffer
-    uint8_t *buf = kalloc(BLOCK_SIZE);
-    if (!buf)
-        return false;
 
     // Read superblock
-    if (!blkdev_read(buf, fs_state->dev_handle, 0))
-        // Free superblock buffer
-        kfree(buf);
+    if (!blkdev_read(fs_state->io_buf, fs_state->dev_handle, 0))
+        return false;
 
     // Copy values into state
-    bpb_t *bpb = (bpb_t *)buf;
+    bpb_t *bpb = (bpb_t *)fs_state->io_buf;
     fs_state->bpb = *bpb;
 
 #ifdef DEBUG
@@ -232,14 +252,11 @@ bool read_bpb(fs_state_t *fs_state)
     kprintf("  Number of FATs: %d\n", fs_state->bpb.n_fats);
 #endif
 
-    // Free superblock buffer
-    kfree(buf);
-
     return true;
 }
 
 // Read FAT into the filesystem state
-bool read_fat_cache(fs_state_t *fs_state)
+static bool read_fat_cache(fs_state_t *fs_state)
 {
     // Find FAT starting sector
     uint32_t fat_start = fs_state->bpb.reserved_sectors;
@@ -260,7 +277,7 @@ bool read_fat_cache(fs_state_t *fs_state)
 }
 
 // Destroy inode, freeing all memory (inode as well)
-void inode_destroy(vfs_inode_t *inode)
+static void inode_destroy(vfs_inode_t *inode)
 {
     // Free private data
     inode_private_t *prdata = inode->priv_data;
@@ -269,7 +286,7 @@ void inode_destroy(vfs_inode_t *inode)
     // Free inode fields
     kfree(inode->priv_data);
 
-    kprintf("Inode destroy!\n");
+    // kprintf("Inode destroy!\n");
 
     // Free inode
     kfree(inode);
@@ -278,7 +295,7 @@ void inode_destroy(vfs_inode_t *inode)
 // Guesses if the volume is FAT or not
 // Would it have been so hard to provide a magic number?
 // Some kind of checksum? HELLO?!?!?!
-bool check_fat_magically(bpb_t *bpb)
+static bool check_fat_magically(bpb_t *bpb)
 {
     if (bpb->n_fats > 10)
         return false;
@@ -297,20 +314,22 @@ uint32_t total_sectors(bpb_t *bbp)
     return bbp->n_sectors == 0 ? bbp->large_sector_count : bbp->n_sectors;
 }
 
-void destroy_fs_state(fs_state_t *state)
+static void destroy_fs_state(fs_state_t *state)
 {
     // Free FAT cache
     if (state->fat_cache)
         kfree(state->fat_cache);
 
-    kprintf("Destroy fs state\n");
+    // Free IO buffer
+    if (state->io_buf)
+        kfree(state->io_buf);
 
     // Free fs state object
     kfree(state);
 }
 
 // Construct root directory inode
-vfs_inode_t *get_root_inode(fs_state_t *fs_state)
+static vfs_inode_t *get_root_inode(fs_state_t *fs_state)
 {
     // Compute sector information
     uint32_t start_sec = fs_state->bpb.reserved_sectors +
@@ -356,8 +375,8 @@ vfs_inode_t *get_root_inode(fs_state_t *fs_state)
     inode->id = 0; // Cluster 0 is reserved, use it for the root dir
     inode->read = NULL;
     inode->write = NULL;
-    inode->readdir = NULL;
-    inode->lookup = NULL;
+    inode->readdir = inode_readdir;
+    inode->lookup = inode_lookup;
     inode->destroy = inode_destroy;
 
     return inode;
@@ -368,4 +387,381 @@ fail_nomem_pdata:
     kfree(sector_list);
 fail_nomem_sectlist:
     return NULL;
+}
+
+//// Inode functions
+static int64_t inode_readdir(vfs_inode_t *inode, vfs_dirent_t *buf,
+                             uint32_t offset, uint32_t n)
+{
+    fs_state_t *fs_state = inode->fs_state;
+    inode_private_t *pdata = inode->priv_data;
+
+    // Find out number of directory sectors
+    uint32_t n_sectors = inode->size / BLOCK_SIZE;
+
+    // Read directory sector by sector
+    uint32_t dirs_read = 0, dirs_skipped = 0;
+    bool more_dirs = true;
+    bool has_lfn = false; // Do we have a long filename in the buffer?
+    for (size_t i = 0; i < n_sectors && more_dirs && dirs_read < n; i++)
+    {
+        uint32_t block = pdata->sector_list[i];
+
+        // Read sector into IO guuffer
+        if (!blkdev_read(fs_state->io_buf, fs_state->dev_handle, block))
+            return VFS_EIOERR;
+
+        // Read all directory entries in the sector
+        for (fat_dir_entry_t *entry = (fat_dir_entry_t *)fs_state->io_buf;
+             i < fs_state->io_buf + BLOCK_SIZE && dirs_read < n; entry++)
+        {
+
+            // If first byte of entry is 0, there are no more dirctories
+            if (entry->s_name[0] == 0x00)
+            {
+                more_dirs = false;
+                break;
+            }
+
+            // If first byte of entry is 0xE5, the entry is unused
+            // Ignore it
+            if (entry->s_name[0] == 0xE5)
+                continue;
+
+            // Check if this is a long filename entry
+            if (entry->attrs == ATTR_LFN)
+            {
+                // direntry_process_lfn(buf[dirs_read].name, entry);
+                // has_lfn = true;
+                // TODO: add LFN support
+                continue;
+            }
+
+            // Ignore Volume ID entries
+            if (entry->attrs & ATTR_VOLID)
+                continue;
+
+            // Fill directory entry
+            if (!has_lfn)
+                direntry_name_from_short(buf[dirs_read].name, entry);
+
+            // Ignore metadirectories '.' and '..'
+            if (strcmp(buf[dirs_read].name, "..") == 0 ||
+                strcmp(buf[dirs_read].name, ".") == 0)
+                continue;
+
+            if (dirs_skipped == offset)
+            {
+                buf[dirs_read].size = entry->s_size;
+                buf[dirs_read].type = entry->attrs & ATTR_DIR != 0;
+                dirs_read++;
+            }
+            else
+            {
+                dirs_skipped++;
+            }
+
+            has_lfn = false;
+        }
+    }
+
+    return dirs_read;
+}
+
+static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, char *name)
+{
+    fs_state_t *fs_state = inode->fs_state;
+    inode_private_t *pdata = inode->priv_data;
+
+    // Find out number of directory sectors
+    uint32_t n_sectors = inode->size / BLOCK_SIZE;
+
+    // Read directory sector by sector
+    uint32_t dirs_read = 0;
+    bool more_dirs = true;
+    bool has_lfn = false; // Do we have a long filename in the buffer?
+    char name_buf[FILENAME_MAX];
+    for (size_t i = 0; i < n_sectors && more_dirs; i++)
+    {
+        uint32_t block = pdata->sector_list[i];
+
+        // Read sector into IO guuffer
+        if (!blkdev_read(fs_state->io_buf, fs_state->dev_handle, block))
+            return VFS_EIOERR;
+
+        // Read all directory entries in the sector
+        for (fat_dir_entry_t *entry = (fat_dir_entry_t *)fs_state->io_buf;
+             i < fs_state->io_buf + BLOCK_SIZE; entry++)
+        {
+
+            // If first byte of entry is 0, there are no more dirctories
+            if (entry->s_name[0] == 0x00)
+            {
+                more_dirs = false;
+                break;
+            }
+
+            // If first byte of entry is 0xE5, the entry is unused
+            // Ignore it
+            if (entry->s_name[0] == 0xE5)
+                continue;
+
+            // Check if this is a long filename entry
+            if (entry->attrs == ATTR_LFN)
+            {
+                // direntry_process_lfn(buf[dirs_read].name, entry);
+                // has_lfn = true;
+                // TODO: add LFN support
+                continue;
+            }
+
+            // Ignore Volume ID entries
+            if (entry->attrs & ATTR_VOLID)
+                continue;
+
+            // Get name of entry
+            direntry_name_from_short(name_buf, entry);
+
+            // Ignore metadirectories '.' and '..'
+            if (strcmp(name_buf, "..") == 0 ||
+                strcmp(name_buf, ".") == 0)
+                continue;
+
+            // Compare entry name with requested filename
+            if (strcmp(name_buf, name) == 0)
+            {
+                // Found file!
+
+                // Check if file is a directory
+                bool is_dir = (entry->attrs & ATTR_DIR) != 0;
+
+                // Compute sector list length
+                uint32_t n = follow_sector_chain(NULL, fs_state, entry->s_fat_entry_low);
+
+                // Sanity check number of sectors
+                // Only check on files, not directories
+                if (!is_dir && n != nblocks(entry->s_size))
+                    return VFS_EINCON;
+
+                // Allocate inode private data
+                inode_private_t *new_pdata = kalloc(sizeof(inode_private_t));
+                if (!pdata)
+                    return VFS_ENOMEM;
+
+                // Allocate and construct sector list
+                uint32_t *sector_list = kalloc(sizeof(uint32_t) * n);
+                if (!sector_list)
+                {
+                    free_inode_pdata(pdata);
+                    return VFS_ENOMEM;
+                }
+                follow_sector_chain(sector_list, fs_state, entry->s_fat_entry_low);
+                new_pdata->sector_list = sector_list;
+
+                // Construct inode
+                vfs_inode_t *new_inode = kalloc(sizeof(vfs_inode_t));
+                if (!new_inode)
+                {
+                    free_inode_pdata(pdata);
+                    return VFS_ENOMEM;
+                }
+
+                strcpy(new_inode->name, name_buf);
+                // FAT directories don't have a size, round it up to the number
+                // of sectors
+                new_inode->size = is_dir ? BLOCK_SIZE * n : entry->s_size;
+                new_inode->type = is_dir ? VFS_INTYPE_DIR : VFS_INTYPE_FILE;
+                new_inode->priv_data = new_pdata;
+                new_inode->fs_state = fs_state;
+                new_inode->id = entry->s_fat_entry_low;
+                new_inode->read = is_dir ? NULL : inode_read;
+                new_inode->write = NULL;
+                new_inode->readdir = is_dir ? inode_readdir : NULL;
+                new_inode->lookup = is_dir ? inode_lookup : NULL;
+                new_inode->destroy = inode_destroy;
+
+                *res = new_inode;
+                return 0;
+            }
+
+            has_lfn = false;
+        }
+
+        return VFS_ENOENT;
+    }
+
+    return dirs_read;
+}
+
+static int64_t inode_read(vfs_inode_t *inode, uint8_t *buf,
+                          uint32_t offset, uint32_t n)
+{
+    fs_state_t *fs_state = inode->fs_state;
+    inode_private_t *pdata = inode->priv_data;
+
+    // Find out number of file blocks
+    uint32_t n_blocks = nblocks(inode->size);
+
+    // Compute start sector
+    uint32_t start_block = offset / BLOCK_SIZE;
+
+    uint32_t bytes_read = 0;
+
+    for (uint32_t block = start_block; block < n_blocks && bytes_read < n;
+         block++)
+    {
+        uint32_t sector = pdata->sector_list[block];
+
+        // Read sector into IO guuffer
+        if (!blkdev_read(fs_state->io_buf, fs_state->dev_handle, sector))
+            return VFS_EIOERR;
+
+        // Copy bytes
+        uint32_t int_offset = offset % BLOCK_SIZE;        // Offset inside the sector
+        uint32_t bytes_to_copy = BLOCK_SIZE - int_offset; // How many bytes to copy
+        if (bytes_to_copy > n - bytes_read)               // Clamp with buffer size
+            bytes_to_copy = n - bytes_read;
+        if (bytes_to_copy > inode->size - offset) // Clamp with file size
+            bytes_to_copy = inode->size - offset;
+        memcpy(buf + bytes_read, fs_state->io_buf + int_offset, bytes_to_copy);
+        bytes_read += bytes_to_copy;
+        offset += bytes_to_copy;
+    }
+
+    return bytes_read;
+}
+
+// Fill directory entry name from 8.3 directory entry
+static void direntry_name_from_short(char *name, fat_dir_entry_t *entry)
+{
+    size_t n = 0;
+
+    // Check if there is an extension
+    bool has_ext = false;
+    for (size_t i = 0; i < 3; i++)
+    {
+        if (entry->s_ext[i] != ' ')
+            has_ext = true;
+    }
+
+    // Read name field
+    for (size_t i = 0; i < 8; i++)
+    {
+        // Remove spaces (they are used as padding ?!?! Why not a
+        // non-printable character?)
+        if (entry->s_name[i] != ' ')
+        {
+            name[n] = entry->s_name[i];
+            n++;
+        }
+    }
+
+    if (has_ext)
+    {
+        // Add extemsion separator ('.')
+        name[n] = '.';
+        n++;
+    }
+
+    for (size_t i = 0; i < 3; i++)
+    {
+        // Remove spaces (they are used as padding ?!?! Why not a
+        // non-printable character?)
+        if (entry->s_ext[i] != ' ')
+        {
+            name[n] = entry->s_ext[i];
+            n++;
+        }
+    }
+
+    // Null-terminate name
+    name[n] = 0;
+}
+
+// Read long filename entry into name buffer
+static void direntry_process_lfn(char *name, fat_dir_entry_t *entry)
+{
+    // TODO:later
+}
+
+static inline uint32_t nblocks(uint32_t size)
+{
+    return (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+}
+
+static void free_inode_pdata(inode_private_t *pdata)
+{
+    if (pdata->sector_list)
+        kfree(pdata->sector_list);
+
+    kfree(pdata);
+}
+
+static uint32_t follow_sector_chain(uint32_t *sector_list,
+                                    fs_state_t *fs_state,
+                                    uint32_t start_cluster)
+{
+    uint32_t n = 0;
+
+    uint32_t cluster = start_cluster;
+    do
+    {
+        // Add current cluster to list
+        uint32_t sector = cluster_start_sector(fs_state, cluster);
+        for (uint32_t i = 0; i < fs_state->bpb.sectors_per_cluster; i++)
+        {
+            // If sector_list is NULL, count only
+            if (sector_list)
+                sector_list[n] = sector + i;
+            n++;
+        }
+
+        // Follow cluster link
+        if (!read_fat_entry(&cluster, fs_state, cluster))
+            return n; // Entry out of range, stop reading
+
+    } while (cluster < 0xFF7 && cluster != 0); // End of cluster chain
+
+    return n;
+}
+
+// Isolate a single FAT entry from the FAT cache
+static bool read_fat_entry(uint32_t *entry, fs_state_t *fs_state,
+                           uint32_t cluster)
+{
+
+    uint32_t fat_offset = cluster + (cluster / 2);
+    uint32_t fat_entry = *(uint16_t *)(fs_state->fat_cache + fat_offset);
+
+    // Check entry in range
+    if (cluster >= fs_state->bpb.sectors_per_fat * BLOCK_SIZE)
+        return false;
+
+    if (cluster % 2 == 0)
+        *entry = fat_entry & 0xFFF;
+    else
+        *entry = fat_entry >> 4;
+
+    return true;
+}
+
+// Compute starting sector of a cluster
+static uint32_t cluster_start_sector(fs_state_t *fs_state, uint32_t cluster)
+{
+    return fs_state->data_start +
+           (cluster - 2) * fs_state->bpb.sectors_per_cluster; // Cluster offset
+}
+
+static uint32_t dbg_sector_list(vfs_inode_t *inode)
+{
+    inode_private_t *pdata = inode->priv_data;
+
+    // Find out number of directory sectors
+    uint32_t n_sectors = inode->size / BLOCK_SIZE;
+
+    for (size_t i = 0; i < n_sectors; i++)
+    {
+        kprintf(" %d", pdata->sector_list[i]);
+    }
+    kprintf("\n");
 }

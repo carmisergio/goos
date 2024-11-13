@@ -1,4 +1,5 @@
 #include <stddef.h>
+#include <stdint.h>
 
 #include "string.h"
 
@@ -82,4 +83,11 @@ int strcmp(const char *p1, const char *p2)
     } while (c1 == c2);
 
     return c1 - c2;
+}
+
+char *strcpy(char *dst, const char *src)
+{
+    uint32_t n = strlen(src);
+    memcpy(dst, src, n + 1);
+    return dst;
 }

@@ -247,6 +247,128 @@ void test_floppy()
     blkdev_release_handle(handle);
 }
 
+void test_fs_mem_leaks()
+{
+    kalloc_dbg_block_chain();
+    // Mount
+    if (vfs_mount("fd0", 0, "fat") >= 0)
+        kprintf("Mount success!\n");
+    else
+        kprintf("Mount failure!\n");
+
+    vfs_file_handle_t file1, file2, file3;
+
+    for (int i = 0; i < 100; i++)
+    {
+        if ((file1 = vfs_open("0:/BOOT", FOPT_DIR)) < 0)
+            kprintf("Open error: %d\n", file1);
+
+        // Try to read directory
+        vfs_dirent_t dir_buf[1];
+        int64_t ndirs;
+        int32_t offst = 0;
+        do
+        {
+            if ((ndirs = vfs_readdir(file1, dir_buf, offst, 1)) < 0)
+            {
+                kprintf("Error reading directory: %d\n", ndirs);
+                break;
+            }
+
+            for (size_t i = 0; i < ndirs; i++)
+            {
+                kprintf(" - %s\n", dir_buf[i].name);
+            }
+
+            offst += ndirs;
+
+        } while (ndirs >= 1);
+
+        if ((file2 = vfs_open("0:/BOOT/MEMTEST.BIN", 0)) < 0)
+            kprintf("Open error: %d\n", file2);
+
+        do
+        {
+            if ((ndirs = vfs_readdir(file2, dir_buf, offst, 1)) < 0)
+            {
+                kprintf("Error reading directory: %d\n", ndirs);
+                break;
+            }
+
+            for (size_t i = 0; i < ndirs; i++)
+            {
+                kprintf(" - %s\n", dir_buf[i].name);
+            }
+
+            offst += ndirs;
+
+        } while (ndirs >= 1);
+
+        vfs_close(file1);
+
+        vfs_close(file2);
+    }
+
+    if (vfs_unmount(0) >= 0)
+        kprintf("Unmount success!\n");
+    else
+        kprintf("Unmount failure!\n");
+    kalloc_dbg_block_chain();
+}
+
+void test_fs_read()
+{
+    if (vfs_mount("fd0", 0, "fat") >= 0)
+        kprintf("Mount success!\n");
+    else
+        kprintf("Mount failure!\n");
+
+    vfs_file_handle_t file;
+    if ((file = vfs_open("0:/BIN/HELLO.TXT", 0)) < 0)
+    {
+        kprintf("Open error: %d\n", file);
+        goto noread;
+    }
+
+    while (true)
+    {
+        // Do read
+        uint32_t offset = 0;
+        uint8_t *file_buf = mem_palloc_k(1);
+        int64_t bytes_read;
+
+        do
+        {
+            if ((bytes_read = vfs_read(file, file_buf, offset, MEM_PAGE_SIZE)) < 0)
+            {
+                kprintf("Error reading file: %d\n", bytes_read);
+                break;
+            }
+
+            console_write(file_buf, bytes_read);
+            console_write("\n", 1);
+            console_write("\n", 1);
+
+            offset += bytes_read;
+
+        } while (bytes_read >= 1);
+
+        clock_delay_ms(1000);
+    }
+
+    vfs_close(file);
+
+noread:
+
+    kprintf("\n");
+
+    if (vfs_unmount(0) >= 0)
+        kprintf("Unmount success!\n");
+    else
+        kprintf("Unmount failure!\n");
+    kalloc_dbg_block_chain();
+}
+
 /*
  * Main kernel entry point
  * Remember to initialize boot_info before calling this!
@@ -281,46 +403,87 @@ void kmain(multiboot_info_t *mbd)
 
     blkdev_debug_devices();
 
-    kalloc_dbg_block_chain();
+    // test_fs_mem_leaks();
+    test_fs_read();
 
-    // Mount
-    if (vfs_mount("fd0", 0, "fat") >= 0)
-        kprintf("Mount success!\n");
-    else
-        kprintf("Mount failure!\n");
+    // kalloc_dbg_block_chain();
 
-    kalloc_dbg_block_chain();
+    // // Mount
+    // if (vfs_mount("fd0", 0, "fat") >= 0)
+    //     kprintf("Mount success!\n");
+    // else
+    //     kprintf("Mount failure!\n");
 
-    // Unmount
-    vfs_unmount(0);
+    // // Mount
+    // if (vfs_mount("fd1", 3, "fat") >= 0)
+    //     kprintf("Mount success!\n");
+    // else
+    //     kprintf("Mount failure!\n");
 
-    kalloc_dbg_block_chain();
+    // kalloc_dbg_block_chain();
 
-    while (true)
-    {
-        // Read name
-        console_write("Number: ", 8);
-        char buf[33];
-        int32_t n = console_readline(buf, 32);
-        buf[n] = '\0';
-        console_write("\n", 1);
+    // // kalloc_dbg_block_chain();
 
-        char *input = buf;
-        char name[FILENAME_MAX + 1];
+    // vfs_dirent_t *dir_buf = kalloc(sizeof(vfs_dirent_t) * 10);
 
-        mount_point_t mp;
-        if (!parse_path_mountpoint(&mp, &input))
-        {
-            continue;
-        }
+    // while (true)
+    // {
+    //     // Read name
+    //     console_write("Number: ", 8);
+    //     char path[33];
+    //     int32_t n = console_readline(path, 32);
+    //     path[n] = '\0';
+    //     console_write("\n", 1);
 
-        kprintf("Mountpiont: %d\n", mp);
+    //     // char *input = buf;
+    //     // char name[FILENAME_MAX + 1];
 
-        while (parse_path_filename(name, &input))
-        {
-            kprintf("Success: name = \"%s\"\n", name);
-        }
-    }
+    //     // mount_point_t mp;
+    //     // if (!parse_path_mountpoint(&mp, &input))
+    //     // {
+    //     //     continue;
+    //     // }
+
+    //     // kprintf("Mountpiont: %d\n", mp);
+
+    //     // while (parse_path_filename(name, &input))
+    //     // {
+    //     //     kprintf("Success: name = \"%s\"\n", name);
+    //     // }
+
+    //     vfs_file_handle_t file;
+    //     if ((file = vfs_open(path, FOPT_DIR)) < 0)
+    //     {
+    //         kprintf("Error opening file: %d\n", file);
+    //         continue;
+    //     }
+
+    //     // Try to read directory
+    //     int64_t ndirs;
+    //     int32_t offst = 0;
+    //     do
+    //     {
+    //         if ((ndirs = vfs_readdir(file, dir_buf, offst, 10)) < 0)
+    //         {
+    //             kprintf("Error reading directory: %d\n", ndirs);
+    //             break;
+    //         }
+
+    //         for (size_t i = 0; i < ndirs; i++)
+    //         {
+    //             kprintf(" - %s\n", dir_buf[i].name);
+    //         }
+
+    //         offst += n;
+
+    //     } while (ndirs >= 32);
+
+    //     // Close file
+    //     vfs_close(file);
+    // }
+
+    // // Unmount
+    // vfs_unmount(0);
 
     // test_floppy();
 
