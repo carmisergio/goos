@@ -94,7 +94,7 @@ bool pic_check_spurious(uint8_t irq)
         // Master PIC spurious interrupt
         if (pic_int_is_spuious(PIC1_BASE))
         {
-            kdbg("[PIC] Master spurious interrupt!\n");
+            kprintf("[PIC] Master spurious interrupt!\n");
             return true;
         }
     }
@@ -105,7 +105,7 @@ bool pic_check_spurious(uint8_t irq)
         {
             // Send EOI to master PIC
             pic_int_send_eoi(PIC1_BASE);
-            kdbg("[PIC] Slave spurious interrupt!\n");
+            kprintf("[PIC] Slave spurious interrupt!\n");
             return true;
         }
     }

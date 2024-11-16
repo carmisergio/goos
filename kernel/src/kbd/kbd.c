@@ -5,12 +5,16 @@
 #include <stddef.h>
 #include "string.h"
 
+#include "config.h"
 #include "panic.h"
 #include "log.h"
 
 #include "clock.h"
 
-// #define DEBUG 1
+// Configure debugging
+#if DEBUG_KBD == 1
+#define DEBUG
+#endif
 
 // Configuration variables
 #define SCRLLCK_INIT false

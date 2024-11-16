@@ -16,10 +16,11 @@ extern "C"
     void kprintf_init();
 
     /*
-     * Initialize kernel logging subsystem features
-     * memory management
+     * Suppress loggging on the system console
+     * This is done right before the init process is loaded
+     * val: true to suppress output
      */
-    void kprintf_init_aftermem();
+    void kprintf_suppress_console(bool val);
 
     /*
      * Log to kernel log

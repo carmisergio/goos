@@ -5,6 +5,7 @@
 
 #include "sync.h"
 
+#include "config.h"
 #include "panic.h"
 #include "mem/const.h"
 #include "mem/mem.h"
@@ -13,9 +14,12 @@
 #include "error.h"
 #include "log.h"
 
-#define DEBUG
-
 #define PROC_STACK_PAGES 4
+
+// Configure debugging
+#if DEBUG_PROC == 1
+#define DEBUG
+#endif
 
 // Internal funcitons
 bool alloc_proc_stack(uint32_t n);
@@ -99,7 +103,7 @@ int32_t proc_push()
     cur_proc = pcb;
 
 #ifdef DEBUG
-    kdbg("[PROC] New process: PID = %u", pcb->pid);
+    kprintf("[PROC] New process: PID = %u\n", pcb->pid);
 #endif
 
     slock_release(&cur_proc_lck);
@@ -126,7 +130,7 @@ int32_t proc_pop()
     proc_cb_t *parent_pcb = pcb->parent;
 
 #ifdef DEBUG
-    kdbg("[PROC] Destroy process: PID = %u", pcb->pid);
+    kprintf("[PROC] Destroy process: PID = %u\n", pcb->pid);
 #endif
 
     // The init process (parent == NULL) is not allowd to exit

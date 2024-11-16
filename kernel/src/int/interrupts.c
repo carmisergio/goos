@@ -3,6 +3,7 @@
 #include "sys/io.h"
 #include "mini-printf.h"
 
+#include "config.h"
 #include "int/idt.h"
 #include "int/exceptions.h"
 #include "log.h"
@@ -11,7 +12,10 @@
 #include "clock.h"
 #include "syscall/syscall.h"
 
-// #define DEBUG 1
+// Configure debugging
+#if DEBUG_INT == 1
+#define DEBUG
+#endif
 
 // Maximum IRQ handlers for each IRQ
 #define MAX_IRQ_HANDLERS 2
@@ -24,6 +28,7 @@ void handle_irq(uint16_t irq);
 
 // Global objects
 void (*irq_handlers[NUM_IRQ][MAX_IRQ_HANDLERS])(); // Pointers to IRQ handlers
+interrupt_context_t *cur_ctx;
 
 /* Public functions */
 
@@ -43,6 +48,9 @@ void interrupts_init()
 
     // Remap PIC
     pic_init(IRQ_VEC_OFFSET);
+
+    // We are not inside an interrupt context
+    cur_ctx = NULL;
 
     // Enable hardware interrupts
     sti();
@@ -139,14 +147,23 @@ void interrupts_unregister_irq(uint8_t irq, void (*handler)())
     panic("INT_UNREGISTER_IRQ_HANDLER_NOT_REGISTERED", msg);
 }
 
+interrupt_context_t *interrupt_get_cur_ctx()
+{
+    return cur_ctx;
+}
+
 /* Internal functions */
 
 // Main ISR, called from vectors in vectors.S
 void interrupt_handler(interrupt_context_t *ctx)
 {
 #ifdef DEBUG
-    kdbg("[INT] %d\n", ctx->vec);
+    kprintf("[INT] %d\n", ctx->vec);
 #endif
+
+    // Set current interrupt context for other code
+    // running in the interrupt handler to access
+    cur_ctx = ctx;
 
     if (ctx->vec < 32)
     {
@@ -163,6 +180,9 @@ void interrupt_handler(interrupt_context_t *ctx)
         // System call
         handle_syscall(ctx);
     }
+
+    // Unset current interrupt context
+    cur_ctx = NULL;
 }
 
 // Handle hardware interrupt

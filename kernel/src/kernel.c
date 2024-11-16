@@ -148,6 +148,10 @@ int32_t start_init_proc()
     // Close file
     vfs_close(file);
 
+    // Don't print kernel debug information on the console
+    // from now on
+    kprintf_suppress_console(true);
+
     // Set up CPU context for process execution
     proc_setup_cpu_ctx(entry);
 

@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-// Filesystem errors
+// Universal errors
 #define E_UNKNOWN -1   // Unknown error
 #define E_NOIMPL -2    // Not implemented
 #define E_NOENT -3     // No such file or directory

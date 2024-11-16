@@ -1,12 +1,16 @@
 #include "blkdev/blkdev.h"
 
+#include "config.h"
 #include "string.h"
 #include "collections/dllist.h"
 #include "mem/kalloc.h"
 #include "panic.h"
 #include "log.h"
 
+// Configure debugging
+#if DEBUG_BLKDEV == 1
 #define DEBUG
+#endif
 
 // Maximum number of active block device handles
 #define MAX_HANDLES 4
@@ -88,7 +92,7 @@ blkdev_handle_t blkdev_get_handle(const char *major)
     dev->used = true;
 
 #ifdef DEBUG
-    kdbg("[BLKDEV] Got handle for device %s: %d\n", major, handle);
+    kprintf("[BLKDEV] Got handle for device %s: %d\n", major, handle);
 #endif
 
     return handle;
@@ -104,7 +108,7 @@ void blkdev_release_handle(blkdev_handle_t handle)
     handles[idx].devlst_entry->used = false;
 
 #ifdef DEBUG
-    kdbg("[BLKDEV] Released handle %d\n", handle);
+    kprintf("[BLKDEV] Released handle %d\n", handle);
 #endif
 }
 
@@ -124,7 +128,7 @@ bool blkdev_read(uint8_t *buf, const blkdev_handle_t handle,
     blkdev_t *dev = &handles[idx].devlst_entry->dev;
 
 #ifdef DEBUG
-    kdbg("[BLKDEV] Device %s (handle %d), read block %d\n", dev->major, handle, block);
+    kprintf("[BLKDEV] Device %s (handle %d), read block %d\n", dev->major, handle, block);
 #endif
 
     // Check block in range
@@ -167,7 +171,7 @@ bool blkdev_write(const uint8_t *buf, const blkdev_handle_t handle,
     blkdev_t *dev = &handles[idx].devlst_entry->dev;
 
 #ifdef DEBUG
-    kdbg("[BLKDEV] Device %s (handle %d), write block %d\n", dev->major, handle, block);
+    kprintf("[BLKDEV] Device %s (handle %d), write block %d\n", dev->major, handle, block);
 #endif
 
     // Check block in range

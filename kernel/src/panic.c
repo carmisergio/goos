@@ -14,6 +14,8 @@ static inline void _hlt();
 
 void panic(char *code, char *message)
 {
+    kprintf_suppress_console(false);
+
     // Clear screen
     console_reset();
     console_set_bgcol(CONS_COL_RED);

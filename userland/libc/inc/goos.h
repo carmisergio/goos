@@ -11,6 +11,14 @@
 //// System calls
 
 /*
+ * Delay Milliseconds
+ * Blocks execution for a specified amount of time
+ * #### Parameters;
+ *   - time: time to sleep for
+ */
+void delay_ms(uint32_t time);
+
+/*
  * Write to the system console
  * Supports ANSI control sequences
  * NOTE: ANSI control sequences MUST be sent completely within

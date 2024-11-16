@@ -3,6 +3,7 @@
 #include <string.h>
 #include "mini-printf.h"
 
+#include "config.h"
 #include "syscall/go_user.h"
 #include "proc/proc.h"
 #include "log.h"
@@ -13,11 +14,17 @@
 #include "fs/vfs.h"
 #include "proc/elf.h"
 #include "error.h"
+#include "mem/kalloc.h"
 
 #include "clock.h"
 #include "console/console.h"
 
 #define MSG_N 64
+
+// Configure debugging
+#if DEBUG_SYSCALL == 1
+#define DEBUG
+#endif
 
 /*
  * SYSCALL TABLE
@@ -110,7 +117,7 @@ void syscall_handler()
     syscall_n_t syscall_n = pcb->cpu_ctx.eax;
 
 #ifdef DEBUG
-    kdbg("[SYSCALL] %d\n", syscall_n);
+    kprintf("[SYSCALL] %d\n", syscall_n);
 #endif
 
     // Test protected instructions
@@ -254,7 +261,7 @@ void syscall_exec(proc_cb_t *pcb)
     {
         // Failure
         // Return to current process
-        goto fail;
+        goto fail_closefile;
     }
 
     // NOTE: We are now in the context of the new process
@@ -264,6 +271,9 @@ void syscall_exec(proc_cb_t *pcb)
     if ((res = elf_load(file, &entry)) < 0)
         goto fail_destroyproc;
 
+    // Close executable file
+    vfs_close(file);
+
     // Here would be where we set up the args and other things
     // Passed to the new process
 
@@ -271,6 +281,8 @@ void syscall_exec(proc_cb_t *pcb)
     proc_setup_cpu_ctx(entry);
 
     return;
+fail_closefile:
+    vfs_close(file);
 fail_destroyproc:
     proc_pop();
 fail:

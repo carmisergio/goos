@@ -204,7 +204,7 @@ void set_up_tss()
     // if ((void *)tss.esp0 == MEM_FAIL)
     //     panic("SET_UP_TSS_INT_STACK_ALLOC_FAIL", "Unable to allocate interrupt stack");
 
-    kdbg("Interrupt stack: %x\n", tss.esp0);
+    kprintf("Interrupt stack: %x\n", tss.esp0);
 
     // Compute limit
     uint32_t limit = (uint32_t)&tss + sizeof(tss_struct_t);

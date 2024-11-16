@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include "mini-printf.h"
 
 #include "log.h"
@@ -8,20 +9,20 @@
 
 #define LOG_PORT COM1
 
-enum arg_len
-{
-    LEN_DEFAULT,
-    LEN_LONG,
-    // LEN_LONG_LONG,
-    //  LEN_SHORT,
-    //  LEN_uint8_t,
-};
+// Global objects
+bool console_output_enabled;
 
 /* Public functions */
 
 void kprintf_init()
 {
+    console_output_enabled = true;
     serial_init(LOG_PORT);
+}
+
+void kprintf_suppress_console(bool val)
+{
+    console_output_enabled = !val;
 }
 
 void kprintf(const char *fmt, ...)
@@ -37,7 +38,9 @@ void kprintf(const char *fmt, ...)
 
     // Print to serial and VGA
     serial_prtstr(LOG_PORT, buf);
-    console_write(buf, strlen(buf));
+
+    if (console_output_enabled)
+        console_write(buf, strlen(buf));
 
     // Clean up valist
     va_end(args);

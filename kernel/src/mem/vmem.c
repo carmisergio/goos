@@ -38,11 +38,11 @@ pte_t *cvas_pagetabs;
 
 void vmem_init(pde_t *pagedir)
 {
-    kdbg("[VMEM] Initializing...\n");
+    kprintf("[VMEM] Initializing...\n");
     // Set current address space page directory pointer
     cvas_pagedir = pagedir;
 
-    kdbg("Current VAS Page directory: %x\n", cvas_pagedir);
+    kprintf("Current VAS Page directory: %x\n", cvas_pagedir);
 
     // Set the self reference page table mapping pointer
     // This is where the virtual memory manager will find all the
@@ -97,7 +97,7 @@ void *vmem_map_range_anyk(void *paddr, uint32_t size)
     vaddr = vmem_palloc_k(n_pages);
     if (vaddr == NULL)
     {
-        // kdbg("[VMEM] vmem_map_range_anyk(paddr=%x, size=%d): KVAS full\n", paddr, size);
+        // kprintf("[VMEM] vmem_map_range_anyk(paddr=%x, size=%d): KVAS full\n", paddr, size);
         return NULL;
     }
 
@@ -331,7 +331,7 @@ pde_t *vmem_cur_vas()
 
 void vmem_log_vaddrspc()
 {
-    kdbg("Current address space mappings:\n");
+    kprintf("Current address space mappings:\n");
 
     // Iterate over PDEs
     for (size_t i = 0; i < PDE_NUM; i++)
@@ -356,7 +356,7 @@ void vmem_log_vaddrspc()
                     // Get physical address of entry
                     uint32_t paddr = cvas_pagetabs[tabindex] & 0xFFFFF000;
 
-                    kdbg("  - %x -> %x\n", vaddr, paddr);
+                    kprintf("  - %x -> %x\n", vaddr, paddr);
                 }
             }
         }
@@ -631,7 +631,7 @@ static bool vmem_int_new_page_table(uint32_t pde)
     void *page;
     if ((page = physmem_alloc()) == PHYSMEM_NULL)
     {
-        // kdbg("[VMEM] vmem_int_new_page_table(pde=%d): physmem_alloc() failed\n", pde);
+        // kprintf("[VMEM] vmem_int_new_page_table(pde=%d): physmem_alloc() failed\n", pde);
         return false;
     }
 
@@ -641,7 +641,7 @@ static bool vmem_int_new_page_table(uint32_t pde)
     // Clear Page Table
     memset((void *)(cvas_pagetabs + pde * PTE_NUM), 0x00, sizeof(pte_t) * PTE_NUM);
 
-    // kdbg("[VMEM] Allocated new page table (PDE=%d, phys addr=%x)\n", pde, page);
+    // kprintf("[VMEM] Allocated new page table (PDE=%d, phys addr=%x)\n", pde, page);
 
     return true;
 }
@@ -758,7 +758,7 @@ static void vmem_int_delete_pagetab(uint32_t pde)
 }
 void vmem_log_pagedir()
 {
-    kdbg("Current page directory:\n");
+    kprintf("Current page directory:\n");
 
     // Iterate over PDEs
     for (size_t i = 0; i < PDE_NUM; i++)
@@ -769,7 +769,7 @@ void vmem_log_pagedir()
         // Check if PDE is marked as present
         if ((pde & PDE_FLAG_PRESENT) != 0)
         {
-            kdbg(" - %u:  0x%x\n", i, pde);
+            kprintf(" - %u:  0x%x\n", i, pde);
         }
     }
 }

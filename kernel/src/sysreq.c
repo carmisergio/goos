@@ -3,6 +3,9 @@
 #include "kbd/kbd.h"
 #include "drivers/kbdctl.h"
 #include "panic.h"
+#include "int/interrupts.h"
+#include "syscall/syscall.h"
+#include "proc/proc.h"
 
 // Internal functions
 void kbd_event_receiver(kbd_event_t e);
@@ -33,4 +36,12 @@ void kbd_event_receiver(kbd_event_t e)
         e.mod.alt && !e.mod.shift)
         // Trigger kernel panic
         panic("USER_REQUEST", "User requested kernel panic");
+
+    // Ctrl + C
+    if (e.keysym == KS_c && e.mod.ctrl && !e.mod.alt)
+    {
+        // Ignore CTRL + C in init process
+        if (proc_cur()->parent)
+            handle_dishonorable_exit(interrupt_get_cur_ctx());
+    }
 }

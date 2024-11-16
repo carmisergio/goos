@@ -53,6 +53,12 @@ void interrupts_register_irq(uint8_t irq, void (*handler)());
  */
 void interrupts_unregister_irq(uint8_t irq, void (*handler)());
 
+/*
+ * Get pointer to the current interrupt context
+ * Returns NULL if not inside an interrupt context
+ */
+interrupt_context_t *interrupt_get_cur_ctx();
+
 // Enable hardware interrupts
 static inline void sti()
 {

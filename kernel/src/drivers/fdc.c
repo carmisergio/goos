@@ -5,6 +5,7 @@
 #include "sys/io.h"
 #include "mini-printf.h"
 
+#include "config.h"
 #include "mem/kalloc.h"
 #include "log.h"
 #include "drivers/cmos.h"
@@ -14,7 +15,10 @@
 #include "clock.h"
 #include "blkdev/blkdev.h"
 
-// #define DEBUG
+// Configure debugging
+#if DEBUG_FDC == 1
+#define DEBUG
+#endif
 
 #define CMD_TIMEOUT 100
 #define CMD_RETRIES 3
@@ -1010,7 +1014,7 @@ static bool read_req(blkdev_t *dev, uint8_t *buf, uint32_t block)
     fdc_drv_state_t *state = (fdc_drv_state_t *)dev->drvstate;
 
 #ifdef DEBUG
-    kdbg("[FDC] Drive %d read block %d\n", state->drive, block);
+    kprintf("[FDC] Drive %d read block %d\n", state->drive, block);
 #endif
 
     // Acquire drive lock
@@ -1065,7 +1069,7 @@ static bool write_req(blkdev_t *dev, uint8_t *buf, uint32_t block)
     fdc_drv_state_t *state = (fdc_drv_state_t *)dev->drvstate;
 
 #ifdef DEBUG
-    kdbg("[FDC] Drive %d write block %d\n", state->drive, block);
+    kprintf("[FDC] Drive %d write block %d\n", state->drive, block);
 #endif
 
     // Acquire drive lock
@@ -1192,7 +1196,7 @@ void motor_off_cb(void *data)
         return;
 
 #ifdef DEBUG
-    kdbg("[FDC] Drive %d motor off\n", state->drive);
+    kprintf("[FDC] Drive %d motor off\n", state->drive);
 #endif
 
     // Turn off motor

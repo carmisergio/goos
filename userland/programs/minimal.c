@@ -11,17 +11,17 @@ int main()
 
     // while (true)
     // {
-    for (int i = 0; i < 10; i++)
+    // for (int i = 0; i < 10; i++)
+    // {
+    int32_t retval;
+    if (exec("0:/BIN/CHILD", &retval) < 0)
     {
-        int32_t retval;
-        if (exec("0:/BIN/CHILD", &retval) < 0)
-        {
-            console_write("fail!\n", 6);
-        };
+        console_write("fail!\n", 6);
+    };
 
-        if (retval < 0)
-            console_write("proc fail!\n", 11);
-    }
+    if (retval < 0)
+        console_write("proc fail!\n", 11);
+    // }
     // }
     //
 

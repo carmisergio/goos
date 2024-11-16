@@ -108,13 +108,16 @@ int32_t elf_load(vfs_file_handle_t file, void **entry)
     if ((res = do_load_program(file, ph_table, header.ph_ent_num)) < 0)
         goto fail;
 
+    // Free program header table
+    kfree(ph_table);
+
     // Set entry point
     *entry = (void *)header.entry;
 
     return 0;
 
 fail:
-    // Free program entry table
+    // Free program header table
     if (ph_table)
         kfree(ph_table);
     return res;

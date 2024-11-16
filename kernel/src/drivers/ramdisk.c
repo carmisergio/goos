@@ -28,7 +28,7 @@ void ramdisk_create(uint32_t id, uint32_t nblocks)
     rd_state_t *state = kalloc(sizeof(kfree));
     if (state == NULL)
     {
-        kdbg("[RAMDISK] %d creation failure: Not enough memory\n", id);
+        kprintf("[RAMDISK] %d creation failure: Not enough memory\n", id);
         return;
     }
 
@@ -36,7 +36,7 @@ void ramdisk_create(uint32_t id, uint32_t nblocks)
     uint8_t **blklst = allocate_blocklist(nblocks);
     if (blklst == NULL)
     {
-        kdbg("[RAMDISK] %d creation failure: Not enough memory\n", id);
+        kprintf("[RAMDISK] %d creation failure: Not enough memory\n", id);
 
         // Deallocate driver state
         kfree(state);

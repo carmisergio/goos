@@ -51,7 +51,7 @@ block_t *addrlst_head;
 void kalloc_init()
 {
 #ifdef DEBUG
-    kdbg("[KALLOC] Initializing...\n");
+    kprintf("[KALLOC] Initializing...\n");
 #endif
 
     // Inizialize lists
@@ -75,7 +75,7 @@ void *kalloc(size_t n)
         n = MIN_ALLOC;
 
 #ifdef DEBUG
-    kdbg("[KALLOC] Allocating: %d bytes\n", n);
+    kprintf("[KALLOC] Allocating: %d bytes\n", n);
 #endif
 
     // Find suitable block in size list
@@ -131,7 +131,7 @@ void *kalloc(size_t n)
 void kfree(void *ptr)
 {
 #ifdef DEBUG
-    kdbg("[KALLOC] Freeing: %d bytes\n", mptr_to_bptr(ptr)->size);
+    kprintf("[KALLOC] Freeing: %d bytes\n", mptr_to_bptr(ptr)->size);
 #endif
     // Add block to block chain
     block_chain_insert(mptr_to_bptr(ptr));
@@ -167,7 +167,7 @@ void kalloc_dbg_block_chain()
 static block_t *allocate_new_pages(size_t n)
 {
 #ifdef DEBUG
-    kdbg("[KALLOC] Allocating new pages: %d\n", n);
+    kprintf("[KALLOC] Allocating new pages: %d\n", n);
 #endif
 
     // Get pages from virtual memory manager

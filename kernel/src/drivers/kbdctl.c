@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include "sys/io.h"
 
+#include "config.h"
 #include "log.h"
 #include "panic.h"
 #include "clock.h"
@@ -11,7 +12,10 @@
 #include "drivers/ps2.h"
 #include "drivers/ps2kbd/ps2kbd.h"
 
-// #define DEBUG 1
+// Configure debugging
+#if DEBUG_KBDCTL == 1
+#define DEBUG
+#endif
 
 // Hardware specifications
 #define PORT_DATA 0x60

@@ -30,6 +30,11 @@ int32_t syscall_1(uint32_t syscall_n, uint32_t p1);
 int32_t syscall_2(uint32_t syscall_n, uint32_t p1, uint32_t p2);
 int32_t syscall_2_2(uint32_t syscall_n, uint32_t p1, uint32_t p2, uint32_t *o2);
 
+void delay_ms(uint32_t time)
+{
+    syscall_1(SYSCALL_DELAY_MS, time);
+}
+
 void console_write(char *str, uint32_t n)
 {
     syscall_2(SYSCALL_CONSOLE_WRITE, (uint32_t)str, n);
