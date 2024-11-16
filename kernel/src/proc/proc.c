@@ -11,6 +11,9 @@
 #include "mem/kalloc.h"
 #include "cpu.h"
 #include "error.h"
+#include "log.h"
+
+#define DEBUG
 
 #define PROC_STACK_PAGES 4
 
@@ -51,6 +54,8 @@ fail:
 
 int32_t proc_push()
 {
+    int32_t res;
+
     // Lazily try to get lock
     if (!slock_try_acquire(&cur_proc_lck))
         return E_BUSY;
@@ -61,14 +66,17 @@ int32_t proc_push()
     // Allocate a PCB for the init process
     proc_cb_t *pcb = kalloc(sizeof(proc_cb_t));
     if (!pcb)
-        return E_NOMEM;
+    {
+        res = E_NOMEM;
+        goto fail;
+    }
 
     // Create new VAS for the new process
     pde_t *new_vas = vmem_new_vas();
     if (!new_vas)
     {
-        kfree(pcb);
-        return E_NOMEM;
+        res = E_NOMEM;
+        goto fail_free_pcb;
     }
 
     // Switch to the new address space
@@ -78,9 +86,8 @@ int32_t proc_push()
     // (inside new VAS)
     if (!alloc_proc_stack(PROC_STACK_PAGES))
     {
-        vmem_delete_vas(new_vas);
-        kfree(pcb);
-        return E_NOMEM;
+        res = E_NOMEM;
+        goto fail_delete_vas;
     }
 
     // Set up PCB
@@ -91,13 +98,26 @@ int32_t proc_push()
     // Set current process
     cur_proc = pcb;
 
-    slock_release(&cur_proc_lck);
+#ifdef DEBUG
+    kdbg("[PROC] New process: PID = %u", pcb->pid);
+#endif
 
+    slock_release(&cur_proc_lck);
     return 0;
+
+fail_delete_vas:
+    vmem_delete_vas(new_vas);
+fail_free_pcb:
+    kfree(pcb);
+fail:
+    slock_release(&cur_proc_lck);
+    return res;
 }
 
 int32_t proc_pop()
 {
+    int res;
+
     // Lazily try to get lock
     if (!slock_try_acquire(&cur_proc_lck))
         return E_BUSY;
@@ -105,9 +125,16 @@ int32_t proc_pop()
     proc_cb_t *pcb = cur_proc;
     proc_cb_t *parent_pcb = pcb->parent;
 
+#ifdef DEBUG
+    kdbg("[PROC] Destroy process: PID = %u", pcb->pid);
+#endif
+
     // The init process (parent == NULL) is not allowd to exit
     if (!parent_pcb)
-        return E_NOTPERM;
+    {
+        res = E_NOTPERM;
+        goto fail;
+    }
 
     // Free userspace memory for the current process
     vmem_destroy_uvas();
@@ -115,7 +142,7 @@ int32_t proc_pop()
     // Switch to the parent address space and delete
     // the current processes'
     vmem_switch_vas(parent_pcb->pagedir);
-    vmem_delete_vas(parent_pcb->pagedir);
+    vmem_delete_vas(pcb->pagedir);
 
     // The parent process is now the current process
     cur_proc = parent_pcb;
@@ -126,6 +153,9 @@ int32_t proc_pop()
     slock_release(&cur_proc_lck);
 
     return 0;
+fail:
+    slock_release(&cur_proc_lck);
+    return res;
 }
 
 proc_cb_t *proc_cur()

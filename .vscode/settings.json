@@ -26,7 +26,8 @@
     "locale": "cpp",
     "blkdev.h": "c",
     "elf.h": "c",
-    "goos.h": "c"
+    "goos.h": "c",
+    "error.h": "c"
   },
   "C_Cpp.default.compilerPath": "/usr/bin/gcc",
   "makefile.configureOnOpen": false

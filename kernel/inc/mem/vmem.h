@@ -212,7 +212,13 @@ pde_t *vmem_cur_vas();
 
 // Check if pointer is a valid userspace pointer
 // (doesn't cross into the KVAS)
-bool vmem_check_user_ptr(void *ptr, uint32_t size);
+bool vmem_validate_user_ptr(void *ptr, uint32_t size);
+
+// Check if pointer is a valid userspace pointer
+// And see if all the pages spanned by it are actually mapped
+// in the current UVAS
+// (doesn't cross into the KVAS)
+bool vmem_validate_user_ptr_mapped(void *ptr, uint32_t size);
 
 /*
  * Calculate number of pages from address range size

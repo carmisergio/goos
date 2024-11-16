@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 // Filesystem errors
 #define E_UNKNOWN -1   // Unknown error
 #define E_NOIMPL -2    // Not implemented
@@ -16,3 +18,7 @@
 #define E_ELFFMT -13   // Invalid ELF format
 #define E_NOTPERM -14  // Not permitted
 #define E_INVREQ -15   // Invalid request
+#define E_TERM -15     // Terminated by the system
+
+// Get message string for an error
+char *error_get_message(int32_t err);

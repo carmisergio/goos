@@ -16,8 +16,11 @@ int main()
         int32_t retval;
         if (exec("0:/BIN/CHILD", &retval) < 0)
         {
-            console_write("fail!", 5);
+            console_write("fail!\n", 6);
         };
+
+        if (retval < 0)
+            console_write("proc fail!\n", 11);
     }
     // }
     //
@@ -28,10 +31,10 @@ int main()
 
     console_write(msg, strlen(msg));
 
-    if (exit(123) < 0)
-    {
-        console_write("fail!", 5);
-    }
+    // if (exit(123) < 0)
+    // {
+    //     console_write("fail!", 5);
+    // }
 
     return 0;
 }

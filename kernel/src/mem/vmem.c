@@ -380,12 +380,35 @@ void *vmem_get_phys(void *vaddr)
 
 // Check if pointer is a valid userspace pointer
 // (doesn't cross into the KVAS)
-bool vmem_check_user_ptr(void *ptr, uint32_t size)
+bool vmem_validate_user_ptr(void *ptr, uint32_t size)
 {
     // Check start AND end to avoid integer overflow exploit
     if ((uint32_t)ptr >= KERNEL_VAS_START ||
         (uint32_t)ptr + size >= KERNEL_VAS_START)
         return false;
+
+    return true;
+}
+
+bool vmem_validate_user_ptr_mapped(void *ptr, uint32_t size)
+{
+
+    // Check if pointer is fully within the UVAS
+    if (!vmem_validate_user_ptr(ptr, size))
+        return false;
+
+    void *start_page = vmem_page_aligned(ptr);
+    uint32_t npages = vmem_n_pages_pa(ptr, size);
+
+    // Check each page to see if it's mapped in the VAS
+    for (size_t i = 0; i < npages; i++)
+    {
+        void *page_vaddr = (char *)start_page + i * MEM_PAGE_SIZE;
+
+        // Fail early if at least one page is not mapped
+        if (vmem_get_phys(page_vaddr) == PHYSMEM_NULL)
+            return false;
+    }
 
     return true;
 }

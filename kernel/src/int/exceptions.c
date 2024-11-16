@@ -4,6 +4,8 @@
 #include "mini-printf.h"
 
 #include "panic.h"
+#include "mem/vmem.h"
+#include "syscall/syscall.h"
 
 #define PANIC_MSG_BUF_MAX 256
 
@@ -18,6 +20,17 @@ static inline uint32_t get_cr2_value()
 void handle_exception(interrupt_context_t *ctx)
 {
     char msg_buf[PANIC_MSG_BUF_MAX];
+
+    // If the exception was triggered in a user context,
+    // invoke the unhonorable exit handler of the current process
+    // If EIP is in the user VAS, then the offending instruction
+    // has to be a user program instruction
+    if (vmem_validate_user_ptr((void *)ctx->eip, 1))
+    {
+        handle_dishonorable_exit(ctx);
+        return;
+    }
+
     switch (ctx->vec)
     {
     case 0:

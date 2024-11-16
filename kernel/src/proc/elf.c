@@ -8,7 +8,7 @@
 #include "error.h"
 #include "log.h"
 
-#define DEBUG
+// #define DEBUG
 
 // ELF header
 typedef struct __attribute__((packed))
@@ -143,10 +143,7 @@ int32_t check_elf_format(elf_header_t *header)
 
     // Do some sanity checks
     if (header->ph_ent_size != sizeof(elf_ph_ent_t))
-    {
-        kprintf("[ELF] Sanity check failed!\n");
         return E_ELFFMT;
-    }
 
     return 0;
 }
@@ -212,7 +209,7 @@ int32_t do_load_segment(vfs_file_handle_t file, elf_ph_ent_t *ph)
     uint32_t n_pages = vmem_n_pages_pa(vaddr, ph->memsz);
 
     // Check that segment is not trying to load in the KVAS
-    if (!vmem_check_user_ptr(page_start, n_pages * MEM_PAGE_SIZE))
+    if (!vmem_validate_user_ptr(page_start, n_pages * MEM_PAGE_SIZE))
         return E_ELFFMT;
 
     // Allocate necessary memory

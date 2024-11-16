@@ -59,6 +59,7 @@ $(SRC)/blkdev/blkdev.o \
 $(SRC)/fs/vfs.o \
 $(SRC)/fs/path.o \
 $(SRC)/fs/fat.o \
+$(SRC)/error.o \
 
 KLIBC_OBJS =\
 klibc/string.o \
