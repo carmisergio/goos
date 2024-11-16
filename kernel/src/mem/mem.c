@@ -97,3 +97,28 @@ void mem_pfree(void *addr, uint32_t n)
     // Unmap from VAS
     vmem_unmap(addr, n);
 }
+
+bool mem_make_avail(void *vaddr, uint32_t n)
+{
+    // Iterate over all pages to map
+    for (uint32_t page = 0; page < n; page++)
+    {
+        void *page_vaddr = (uint8_t *)vaddr + page * MEM_PAGE_SIZE;
+
+        // Allocate physical memory
+        void *page_paddr = physmem_alloc();
+        if (page_paddr == PHYSMEM_NULL)
+        {
+            // Error allocating memory
+            // Free all previously allocated pages
+            mem_pfree(vaddr, page);
+
+            return false;
+        }
+
+        // Map page
+        vmem_map(page_paddr, page_vaddr, 1);
+    }
+
+    return true;
+}

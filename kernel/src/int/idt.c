@@ -17,9 +17,6 @@
 #define IDT_USER (0x3 << 5)
 #define IDT_P (0x1 << 7)
 
-// Semgent selector flags
-#define SEGSEL_KERNEL 0x0
-
 // Interrupt vectors (defined in vectors.S)
 extern void int_vector_0();
 extern void int_vector_1();

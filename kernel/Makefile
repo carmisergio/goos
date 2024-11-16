@@ -54,6 +54,7 @@ $(SRC)/console/ascii.o \
 $(SRC)/syscall/go_user.o \
 $(SRC)/syscall/syscall.o \
 $(SRC)/proc/proc.o \
+$(SRC)/proc/elf.o \
 $(SRC)/blkdev/blkdev.o \
 $(SRC)/fs/vfs.o \
 $(SRC)/fs/path.o \

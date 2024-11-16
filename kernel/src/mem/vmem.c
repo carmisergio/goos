@@ -5,6 +5,7 @@
 
 #include "log.h"
 #include "panic.h"
+#include "mem/mem.h"
 #include "mem/const.h"
 #include "mem/physmem.h"
 
@@ -22,7 +23,9 @@ static void vmem_int_set_pde(void *paddr, uint32_t pde_index);
 static void vmem_int_clear_pde(uint32_t pde_index);
 static void vmem_int_delete_unused_page_tables(uint32_t start, uint32_t n);
 static bool vmem_int_is_page_table_unused(uint32_t pde);
+static void vmem_int_delete_pagetab(uint32_t pde);
 static inline void vmem_int_flush_tlb();
+static inline void set_cr3(uint32_t val);
 
 // Pointer to the virtual address of the current address space's
 // page directory
@@ -72,6 +75,8 @@ bool vmem_map(void *paddr, void *vaddr, uint32_t n)
 
         // Set corresponding PTE
         vmem_int_set_pte(page_paddr, page_vaddr);
+
+        vmem_int_flush_tlb();
     }
 
     return true;
@@ -143,6 +148,8 @@ void vmem_unmap(void *vaddr, uint32_t n)
 
     // Remove empty Page Tables
     vmem_int_delete_unused_page_tables(vmem_int_pde_index(vaddr), pde_span);
+
+    vmem_int_flush_tlb();
 }
 
 void vmem_unmap_range(void *vaddr, uint32_t size)
@@ -167,6 +174,8 @@ void vmem_unmap_range_nofree(void *vaddr, uint32_t size)
 
     // Clear respective PTEs
     vmem_int_clear_ptes(vaddr_pa, n_pages);
+
+    vmem_int_flush_tlb();
 }
 
 void *vmem_palloc_k(uint32_t n)
@@ -233,6 +242,93 @@ void *vmem_palloc_k(uint32_t n)
     return NULL;
 }
 
+void vmem_destroy_uvas()
+{
+    // Iterate over all PDEs in the user VAS
+    for (uint32_t pde = 0; pde < KERNEL_VAS_START / (MEM_PAGE_SIZE * PTE_NUM); pde++)
+    {
+        // Check if PDE is present
+        if (cvas_pagedir[pde] & PDE_FLAG_PRESENT)
+        {
+            // Iterate over all PTEs of this PDE
+            for (uint32_t pte = 0; pte < PTE_NUM; pte++)
+            {
+                // Offset PTE index by PDE index
+                uint32_t pte_index = pde * PTE_NUM + pte;
+
+                // Check if PTE is mapped
+                if (cvas_pagetabs[pte_index] & PTE_FLAG_PRESENT)
+                {
+                    // Get virutal address of the current page
+                    void *page_vaddr = (void *)(pte_index * MEM_PAGE_SIZE);
+
+                    // Get physical address of the current page
+                    void *page_paddr = vmem_get_phys(page_vaddr);
+
+                    // Free physical page
+                    physmem_free(page_paddr);
+
+                    // Clear PTE
+                    vmem_int_clear_pte(page_vaddr);
+
+                    // kprintf("[VMEM] Destroy_uvas(): cleared 0x%x\n", page_vaddr);
+                }
+            }
+
+            // kprintf("[VMEM] Destroy_uvas(): PDE cleared %u\n", pde);
+
+            // Remove PDE
+            vmem_int_delete_pagetab(pde);
+        }
+    }
+
+    vmem_int_flush_tlb();
+}
+
+pde_t *vmem_new_vas()
+{
+    // Allocate space for a new page table
+    pde_t *pde_vaddr = mem_palloc_k(1);
+    if (!pde_vaddr)
+        return NULL;
+
+    // Clear Page Directory
+    memset(pde_vaddr, 0, MEM_PAGE_SIZE);
+
+    // Set self-reference to Page Directory
+    void *pde_paddr = vmem_get_phys(pde_vaddr);
+    pde_vaddr[PDE_NUM - 1] = (uint32_t)pde_paddr | PDE_FLAG_PRESENT;
+
+    return pde_vaddr;
+}
+
+void vmem_delete_vas(void *pagedir)
+{
+    mem_pfree(pagedir, 1);
+}
+
+void vmem_switch_vas(pde_t *pagedir)
+{
+    // Copy old KVAS into the new VAS
+    for (uint32_t pde = KERNEL_VAS_START / (MEM_PAGE_SIZE * PTE_NUM);
+         pde < PDE_NUM - 1; pde++)
+        pagedir[pde] = cvas_pagedir[pde];
+
+    // Get physical address of page table
+    void *paddr = vmem_get_phys(pagedir);
+
+    // Set new CR3 value
+    set_cr3((uint32_t)paddr);
+
+    // Set new current page directory
+    cvas_pagedir = pagedir;
+}
+
+pde_t *vmem_cur_vas()
+{
+    return cvas_pagedir;
+}
+
 void vmem_log_vaddrspc()
 {
     kdbg("Current address space mappings:\n");
@@ -280,6 +376,18 @@ void *vmem_get_phys(void *vaddr)
 
     // Get address
     return (void *)(cvas_pagetabs[pte_index] & PTE_ADDR_MASK);
+}
+
+// Check if pointer is a valid userspace pointer
+// (doesn't cross into the KVAS)
+bool vmem_check_user_ptr(void *ptr, uint32_t size)
+{
+    // Check start AND end to avoid integer overflow exploit
+    if ((uint32_t)ptr >= KERNEL_VAS_START ||
+        (uint32_t)ptr + size >= KERNEL_VAS_START)
+        return false;
+
+    return true;
 }
 
 /* Internal functions */
@@ -590,16 +698,7 @@ static void vmem_int_delete_unused_page_tables(uint32_t start, uint32_t n)
 
         // Check if the Page table is unused
         if (vmem_int_is_page_table_unused(pde))
-        {
-            // Get physical address of page table
-            void *phys_page = (void *)(cvas_pagedir[pde] & PDE_ADDR_MASK);
-            physmem_free(phys_page);
-
-            // Clear PDE
-            vmem_int_clear_pde(pde);
-
-            // kdbg("[VMEM] Freed page table (PDE=%d, phys addr=%x)\n", pde, phys_page);
-        }
+            vmem_int_delete_pagetab(pde);
     }
 
     vmem_int_flush_tlb();
@@ -625,6 +724,33 @@ static bool vmem_int_is_page_table_unused(uint32_t pde)
     return true;
 }
 
+static void vmem_int_delete_pagetab(uint32_t pde)
+{
+    // Get physical address of page table
+    void *phys_page = (void *)(cvas_pagedir[pde] & PDE_ADDR_MASK);
+    physmem_free(phys_page);
+
+    // Clear PDE
+    vmem_int_clear_pde(pde);
+}
+void vmem_log_pagedir()
+{
+    kdbg("Current page directory:\n");
+
+    // Iterate over PDEs
+    for (size_t i = 0; i < PDE_NUM; i++)
+    {
+        // Extract PDE
+        uint32_t pde = cvas_pagedir[i];
+
+        // Check if PDE is marked as present
+        if ((pde & PDE_FLAG_PRESENT) != 0)
+        {
+            kdbg(" - %u:  0x%x\n", i, pde);
+        }
+    }
+}
+
 /**
  * Flush TLBs
  */
@@ -636,4 +762,11 @@ static inline void vmem_int_flush_tlb()
     __asm__(
         "mov %%cr3, %0\n"
         "mov %0, %%cr3\n" : [temp] "=r"(tmp) : : "memory");
+}
+
+// Set new CR3 value
+static inline void set_cr3(uint32_t val)
+{
+    // Flush TLB by writing to the CR3 register
+    __asm__("mov %0, %%cr3\n" : : "r"(val) : "memory");
 }

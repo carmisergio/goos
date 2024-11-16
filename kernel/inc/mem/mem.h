@@ -2,6 +2,7 @@
 #define _MEM_MEM_H 1
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #include "boot/multiboot_structs.h"
 
@@ -45,6 +46,17 @@ extern "C"
      *     specified virtual address
      */
     void mem_pfree(void *addr, uint32_t n);
+
+    /*
+     * Make a page of virtual memory available for user
+     * DOESN't fail if a page is already mapped
+     * #### Parameters:
+     *   - void *vaddr: virtual address (page aligned)
+     *   - uint32_t n: number of pages
+     * #### Returns:
+     *    false on failure
+     */
+    bool mem_make_avail(void *vaddr, uint32_t n);
 
 #ifdef __cplusplus
 }

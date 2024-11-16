@@ -6,6 +6,7 @@
 #include "mem/kalloc.h"
 #include "fs/path.h"
 #include "panic.h"
+#include "error.h"
 
 #define MAX_MOUNT_POINTS 16
 #define MAX_FILES 32 // Number of simultaneously open files
@@ -80,12 +81,12 @@ int32_t vfs_mount(char *dev, mount_point_t mp, char *fs)
 {
     // Check if mountpoint is valid and not already mounted
     if (mp >= MAX_MOUNT_POINTS || mount_points[mp] != NULL)
-        return VFS_ENOMP;
+        return E_NOMP;
 
     // Find correct FS driver
     vfs_fs_type_t *fs_type = find_fs_type(fs);
     if (!fs_type)
-        return VFS_ENOFS;
+        return E_NOFS;
 
     // Mount
     vfs_superblock_t *mount;
@@ -103,11 +104,11 @@ int32_t vfs_unmount(mount_point_t mp)
 {
     // Check if mountpoint is valid and mounted
     if (mp >= MAX_MOUNT_POINTS || mount_points[mp] == NULL)
-        return VFS_ENOMP;
+        return E_NOMP;
 
     // Check if there are open inodes which belong to this filesystem
     if (is_filesystem_busy(mp))
-        return VFS_EBUSY;
+        return E_BUSY;
 
     // Unmount
     superblock_unmount(mount_points[mp]);
@@ -126,13 +127,13 @@ vfs_file_handle_t vfs_open(char *path, fopts opt)
     mount_point_t mp;
     if (!parse_path_mountpoint(&mp, &path))
         // No mountpoint in path
-        return VFS_ENOENT;
+        return E_NOENT;
 
     // Get root inode of the filesystem mounted at the
     // specified mountpoint
     if (mp >= MAX_MOUNT_POINTS || mount_points[mp] == NULL)
         // Invalid mountpoint
-        return VFS_ENOENT;
+        return E_NOENT;
 
     // Find inode for this path
     vfs_inode_t *inode;
@@ -146,7 +147,7 @@ vfs_file_handle_t vfs_open(char *path, fopts opt)
         // Want a directory
         if (inode->type == VFS_INTYPE_FILE)
         {
-            ret = VFS_EWRONGTYPE;
+            ret = E_WRONGTYPE;
             goto fail;
         }
     }
@@ -155,7 +156,7 @@ vfs_file_handle_t vfs_open(char *path, fopts opt)
         // Want a file
         if (inode->type == VFS_INTYPE_DIR)
         {
-            ret = VFS_EWRONGTYPE;
+            ret = E_WRONGTYPE;
             goto fail;
         }
     }
@@ -178,7 +179,7 @@ vfs_file_handle_t vfs_open(char *path, fopts opt)
         // Cannot open for writing a file that's already open
         // Cannot open a file that's already open for writing
         if (write || file->write)
-            return VFS_EBUSY;
+            return E_BUSY;
 
         // Increment reference count
         file->ref_count++;
@@ -191,7 +192,7 @@ vfs_file_handle_t vfs_open(char *path, fopts opt)
     if (file_handle < 0)
     {
         // No free handles
-        ret = VFS_ETOOMANY;
+        ret = E_TOOMANY;
         goto fail;
     }
 
@@ -233,7 +234,7 @@ int64_t vfs_readdir(vfs_file_handle_t file, vfs_dirent_t *buf, uint32_t offset, 
 {
     // Check if file is valid and open
     if (file >= MAX_FILES || open_files[file].ref_count == 0)
-        return VFS_ENOENT;
+        return E_NOENT;
 
     // Get inode from file
     vfs_inode_t *inode = open_files[file].inode;
@@ -246,7 +247,7 @@ int64_t vfs_read(vfs_file_handle_t file, uint8_t *buf, uint32_t offset, uint32_t
 {
     // Check if file is valid and open
     if (file >= MAX_FILES || open_files[file].ref_count == 0)
-        return VFS_ENOENT;
+        return E_NOENT;
 
     // Get inode from file
     vfs_inode_t *inode = open_files[file].inode;
@@ -362,7 +363,7 @@ static void superblock_unmount(vfs_superblock_t *sb)
 static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, char *file_name)
 {
     if (!inode->lookup)
-        return VFS_ENOIMPL;
+        return E_NOIMPL;
 
     return inode->lookup(inode, res, file_name);
 }
@@ -380,7 +381,7 @@ static int64_t inode_readdir(vfs_inode_t *inode, vfs_dirent_t *buf,
                              uint32_t offset, uint32_t n)
 {
     if (!inode->readdir)
-        return VFS_ENOIMPL;
+        return E_NOIMPL;
 
     return inode->readdir(inode, buf, offset, n);
 }
@@ -389,7 +390,7 @@ static int64_t inode_read(vfs_inode_t *inode, uint8_t *buf,
                           uint32_t offset, uint32_t n)
 {
     if (!inode->read)
-        return VFS_ENOIMPL;
+        return E_NOIMPL;
 
     return inode->read(inode, buf, offset, n);
 }

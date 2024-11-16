@@ -8,19 +8,6 @@
 #define FILENAME_MAX 32
 #define PATH_MAX 1024
 
-// Filesystem errors
-#define VFS_EUNKNOWN -1   // Unknown error
-#define VFS_ENOIMPL -2    // Not implemented
-#define VFS_ENOENT -3     // No such file or directory
-#define VFS_EBUSY -4      // Busy
-#define VFS_ETOOMANY -5   // Too many
-#define VFS_ENOMP -6      // No mountpoint
-#define VFS_ENOFS -7      // No filesystem
-#define VFS_EWRONGTYPE -8 // Wrong type
-#define VFS_EIOERR -9     // I/O error
-#define VFS_ENOMEM -10    // Out of memory
-#define VFS_EINCON -11    // Filesystem inconsistency
-
 // Mount point number
 typedef uint32_t mount_point_t;
 

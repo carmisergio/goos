@@ -37,7 +37,11 @@
 #define GDT_SEGMENT_UDATA 0x0020
 #define GDT_SEGMENT_TSS 0x0028
 
+// Semgent selector flags
+#define SEGSEL_KERNEL 0x0
+#define SEGSEL_USER 0x3
+
 // Interrupt stack size
-#define INTERRUPT_STACK_PAGES 1
+// #define INTERRUPT_STACK_PAGES 1
 
 #endif

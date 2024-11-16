@@ -19,7 +19,7 @@ AR:=i386-elf-ar
 
 # Add required flags
 CFLAGS:=$(CFLAGS) -ffreestanding -Wall -Wextra -std=c23
-LIBS:=$(LIBS) -nostdlib -lgcc
+LIBS:=-lgcc
 INCLUDE:=-I$(INC)
 
 .PHONY: all clean

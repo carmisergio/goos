@@ -264,6 +264,7 @@ int32_t console_readline(char *s, size_t n)
         {
         case KS_ENTER:
             // End of input
+            putchar('\n');
             return read_n;
         case KS_BACKSPACE:
             if (read_n > 0)

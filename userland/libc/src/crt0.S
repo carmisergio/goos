@@ -18,3 +18,10 @@ _start:
     // Exit system call
     push %eax
     call exit
+    
+    // We shouldn't be here
+    // If we fall through, do the leasat destructive thing we can
+    // Just loopidy loop loop forever
+hlt_lp:
+    pause
+    jmp hlt_lp 

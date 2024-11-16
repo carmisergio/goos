@@ -4,7 +4,8 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/kernel/inc/**",
-                "${workspaceFolder}/kernel/klibc/inc/**"
+                "${workspaceFolder}/kernel/klibc/inc/**",
+                "${workspaceFolder}/userland/libc/inc/**"
             ],
             "defines": [],
             "cStandard": "c17",

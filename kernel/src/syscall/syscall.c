@@ -1,18 +1,21 @@
 #include "syscall/syscall.h"
 
+#include <string.h>
 #include "mini-printf.h"
 
 #include "syscall/go_user.h"
 #include "proc/proc.h"
 #include "log.h"
 #include "mem/const.h"
+#include "mem/vmem.h"
 #include "boot/boot.h"
 #include "panic.h"
+#include "fs/vfs.h"
+#include "proc/elf.h"
+#include "error.h"
 
 #include "clock.h"
 #include "console/console.h"
-
-// #define DEBUG 1
 
 #define MSG_N 64
 
@@ -34,12 +37,21 @@ typedef enum
 
     // Console system calls
     SYSCALL_CONSOLE_WRITE = 0x0200,
+    SYSCALL_CONSOLE_READLINE = 0x0201,
+
+    // Process management system calls
+    SYSCALL_EXIT = 0x1000,
+    SYSCALL_EXEC = 0x1001,
 } syscall_n_t;
 
 void syscall_handler();
 void syscall_dummy();
 void syscall_delay_ms(uint32_t time);
 void syscall_console_write(char *s, size_t n);
+int32_t syscall_console_readline(char *buf, size_t n);
+void syscall_exit(proc_cb_t **pcb);
+void syscall_exec(proc_cb_t **pcb);
+void dishonorable_exit_handler(int32_t status);
 
 // This function is executed in the intererupt handler of the
 // system call interrupt. It copies the current CPU context into the
@@ -72,7 +84,6 @@ void handle_syscall(interrupt_context_t *int_ctx)
 // service routine context
 void syscall_handler()
 {
-    char msg[MSG_N];
     proc_cb_t *pcb = proc_cur();
 
     // Syscall number is in EAX
@@ -96,11 +107,30 @@ void syscall_handler()
     case SYSCALL_CONSOLE_WRITE:
         syscall_console_write((char *)pcb->cpu_ctx.ebx, pcb->cpu_ctx.ecx);
         break;
+    case SYSCALL_CONSOLE_READLINE:
+        pcb->cpu_ctx.eax = syscall_console_readline((char *)pcb->cpu_ctx.ebx,
+                                                    pcb->cpu_ctx.ecx);
+        break;
+
+        // Process management syscalls
+    case SYSCALL_EXIT:
+        syscall_exit(&pcb);
+        break;
+    case SYSCALL_EXEC:
+        syscall_exec(&pcb);
+        break;
 
     default:
-        mini_snprintf(msg, MSG_N, "Unknown system call: %d\n", syscall_n);
-        panic("SYSCALL_UNKNOWN", msg);
+        // Unknown system call
+        // Terminate user process
+        dishonorable_exit_handler(-10);
     }
+
+    // // Recover new current process, as it could have been changed
+    // // by the system call
+    // pcb = proc_cur();
+    // NOTE: this is not needed as the system calls which modify this field
+    ///      take care of updating the pointer themselves
 
     // Return to process
     go_userspace(&pcb->cpu_ctx);
@@ -116,5 +146,125 @@ void syscall_delay_ms(uint32_t time)
 // Console write syscall
 void syscall_console_write(char *s, size_t n)
 {
+    // Check string pointer
+    if (!vmem_check_user_ptr(s, n))
+    {
+        dishonorable_exit_handler(-20);
+        return;
+    }
+
     console_write(s, n);
+}
+
+// Console readline syscall
+int32_t syscall_console_readline(char *buf, size_t n)
+{
+    // Check string pointer
+    if (!vmem_check_user_ptr(buf, n))
+    {
+        dishonorable_exit_handler(-20);
+        return -1;
+    }
+
+    return console_readline(buf, n);
+}
+
+// Exit syscall
+void syscall_exit(proc_cb_t **pcb)
+{
+    int32_t retval = (*pcb)->cpu_ctx.ebx;
+    int32_t res;
+
+    // Exit from current process
+    if ((res = proc_pop()) < 0)
+    {
+        // Failure
+        // Return to current process
+
+        // Return value to caller process
+        (*pcb)->cpu_ctx.eax = (uint32_t)res;
+    }
+
+    // Update system call return process
+    *pcb = proc_cur();
+
+    // This will appear to the parent process as the result from the
+    // exec() call
+    (*pcb)->cpu_ctx.eax = 0;
+    (*pcb)->cpu_ctx.ebx = (uint32_t)retval;
+}
+
+// Exec syscall
+void syscall_exec(proc_cb_t **pcb)
+{
+    int32_t res;
+
+    // Get parameters
+    char *p_path = (char *)(*pcb)->cpu_ctx.ebx;
+    uint32_t p_n = (*pcb)->cpu_ctx.ecx;
+
+    // Validate path pointer
+    if (!vmem_check_user_ptr(p_path, p_n))
+    {
+        dishonorable_exit_handler(-20);
+        return;
+    }
+
+    // Check length of path
+    if (p_n > PATH_MAX)
+    {
+        res = E_INVREQ;
+        goto fail;
+    }
+
+    // Copy pointer to kernel memory
+    char path[PATH_MAX + 1];
+    memcpy(path, p_path, p_n);
+    path[p_n] = 0;
+
+    // Open file
+    vfs_file_handle_t file;
+    if ((file = vfs_open(path, 0)) < 0)
+    {
+        res = file;
+        goto fail;
+    }
+
+    // Create new process
+    if ((res = proc_push()) < 0)
+    {
+        // Failure
+        // Return to current process
+        goto fail;
+    }
+
+    // NOTE: We are now in the context of the new process
+
+    // Load ELF
+    void *entry;
+    if ((res = elf_load(file, &entry)) < 0)
+        goto fail_destroyproc;
+
+    // Set up process CPU context
+    proc_setup_cpu_ctx(entry);
+
+    // Update system call return process
+    *pcb = proc_cur();
+
+    return;
+fail_destroyproc:
+    proc_pop();
+fail:
+    // Return value to caller process
+    (*pcb)->cpu_ctx.eax = (uint32_t)res;
+}
+
+// Handle a dishonorable exit from a process
+// This function is executed when a process tries to do womething
+// it shouldn't, and has to be immediately terminated
+void dishonorable_exit_handler(int32_t status)
+{
+    char msg[MSG_N];
+    mini_snprintf(msg, MSG_N, "Dishonorable exit: %d\n", status);
+    panic("DISHONORABLE_EXIT", msg);
 }

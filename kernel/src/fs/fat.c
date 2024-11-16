@@ -8,8 +8,9 @@
 #include "mem/kalloc.h"
 #include "panic.h"
 #include "console/console.h"
+#include "error.h"
 
-#define DEBUG
+// #define DEBUG
 
 // BIOS parameter block structure
 typedef struct __attribute__((packed))
@@ -162,7 +163,7 @@ static int32_t fs_type_mount(char *dev, vfs_superblock_t **superblock)
     if (dev_handle == BLKDEV_HANDLE_NULL)
     {
         kprintf("[FAT] Unable to get handle for device %s\n", dev);
-        return VFS_ENOENT;
+        return E_NOENT;
     }
 
     // Allocate filesytem state
@@ -214,7 +215,7 @@ static int32_t fs_type_mount(char *dev, vfs_superblock_t **superblock)
 fail:
     destroy_fs_state(fs_state);
 fail_nostate:
-    return VFS_EUNKNOWN;
+    return E_UNKNOWN;
 }
 
 static void superblock_unmount(vfs_superblock_t *superblock)
@@ -409,7 +410,7 @@ static int64_t inode_readdir(vfs_inode_t *inode, vfs_dirent_t *buf,
 
         // Read sector into IO guuffer
         if (!blkdev_read(fs_state->io_buf, fs_state->dev_handle, block))
-            return VFS_EIOERR;
+            return E_IOERR;
 
         // Read all directory entries in the sector
         for (fat_dir_entry_t *entry = (fat_dir_entry_t *)fs_state->io_buf;
@@ -487,7 +488,7 @@ static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, char *name)
 
         // Read sector into IO guuffer
         if (!blkdev_read(fs_state->io_buf, fs_state->dev_handle, block))
-            return VFS_EIOERR;
+            return E_IOERR;
 
         // Read all directory entries in the sector
         for (fat_dir_entry_t *entry = (fat_dir_entry_t *)fs_state->io_buf;
@@ -541,19 +542,19 @@ static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, char *name)
                 // Sanity check number of sectors
                 // Only check on files, not directories
                 if (!is_dir && n != nblocks(entry->s_size))
-                    return VFS_EINCON;
+                    return E_INCON;
 
                 // Allocate inode private data
                 inode_private_t *new_pdata = kalloc(sizeof(inode_private_t));
                 if (!pdata)
-                    return VFS_ENOMEM;
+                    return E_NOMEM;
 
                 // Allocate and construct sector list
                 uint32_t *sector_list = kalloc(sizeof(uint32_t) * n);
                 if (!sector_list)
                 {
                     free_inode_pdata(pdata);
-                    return VFS_ENOMEM;
+                    return E_NOMEM;
                 }
                 follow_sector_chain(sector_list, fs_state, entry->s_fat_entry_low);
                 new_pdata->sector_list = sector_list;
@@ -563,7 +564,7 @@ static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, char *name)
                 if (!new_inode)
                 {
                     free_inode_pdata(pdata);
-                    return VFS_ENOMEM;
+                    return E_NOMEM;
                 }
 
                 strcpy(new_inode->name, name_buf);
@@ -587,7 +588,7 @@ static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, char *name)
             has_lfn = false;
         }
 
-        return VFS_ENOENT;
+        return E_NOENT;
     }
 
     return dirs_read;
@@ -614,7 +615,7 @@ static int64_t inode_read(vfs_inode_t *inode, uint8_t *buf,
 
         // Read sector into IO guuffer
         if (!blkdev_read(fs_state->io_buf, fs_state->dev_handle, sector))
-            return VFS_EIOERR;
+            return E_IOERR;
 
         // Copy bytes
         uint32_t int_offset = offset % BLOCK_SIZE;        // Offset inside the sector
