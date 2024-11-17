@@ -39,7 +39,7 @@
 
 const char *SYSTEM_DISK_DEV = "fd0";
 const char *SYSTEM_DISK_FS = "fat";
-const char *INIT_BIN = "0:/BIN/MINIMAL";
+const char *INIT_BIN = "0:/BIN/SHELL";
 
 // Global Boot information structure
 boot_info_t boot_info;

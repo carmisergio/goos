@@ -12,6 +12,9 @@ OBJS:= \
 $(SRC)/crt0.o \
 $(SRC)/syscall.o \
 $(SRC)/string.o \
+$(SRC)/error.o \
+$(SRC)/stdio/console.o \
+$(SRC)/stdio/mini-printf.o \
 
 # Programs
 CC:=i386-elf-gcc

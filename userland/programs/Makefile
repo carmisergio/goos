@@ -8,6 +8,8 @@ OUT_DIR:=bin
 PROGS:= \
 $(OUT_DIR)/minimal \
 $(OUT_DIR)/child \
+$(OUT_DIR)/hello \
+$(OUT_DIR)/shell \
 
 # Standard library
 STDLIB_DIR:=../libc

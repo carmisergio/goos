@@ -29,7 +29,7 @@ void delay_ms(uint32_t time);
  *   - str: pointer to the string to print
  *   - n: number of characters
  */
-void console_write(char *str, uint32_t n);
+void console_write(const char *str, uint32_t n);
 
 /*
  * Read a line from the system console
@@ -37,7 +37,7 @@ void console_write(char *str, uint32_t n);
  *   - buf: pointer to the buffer where to read the string
  *   - n: maximum number of characters
  */
-int32_t console_readline(char *str, uint32_t n);
+int32_t console_readline(const char *str, uint32_t n);
 
 /*
  * Return control to the parent process
@@ -53,14 +53,14 @@ int32_t exit(int32_t status);
  *   - status: pointer to a variable that will hold
  *             the child process return value
  */
-int32_t exec(char *path, int32_t *status);
+int32_t exec(const char *path, int32_t *status);
 
 /*
  * Change process current working directory
  * #### Parameters:
  *   - path: null-terminated path
  */
-int32_t change_cwd(char *path);
+int32_t change_cwd(const char *path);
 
 /*
  * Get curernt working directory of process

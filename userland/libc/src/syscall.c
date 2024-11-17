@@ -37,7 +37,7 @@ void delay_ms(uint32_t time)
     syscall_1(SYSCALL_DELAY_MS, time);
 }
 
-void console_write(char *str, uint32_t n)
+void console_write(const char *str, uint32_t n)
 {
     syscall_2(SYSCALL_CONSOLE_WRITE, (uint32_t)str, n);
 }
@@ -52,13 +52,13 @@ int32_t exit(int32_t status)
     return syscall_1(SYSCALL_EXIT, (uint32_t)status);
 }
 
-int32_t exec(char *path, int32_t *status)
+int32_t exec(const char *path, int32_t *status)
 {
     uint32_t n = strlen(path);
     return syscall_2_2(SYSCALL_EXEC, (uint32_t)path, n, (uint32_t *)status);
 }
 
-int32_t change_cwd(char *path)
+int32_t change_cwd(const char *path)
 {
     uint32_t n = strlen(path);
     return syscall_2(SYSCALL_CHANGE_CWD, (uint32_t)path, n);
