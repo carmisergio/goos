@@ -11,3 +11,4 @@
 #define DEBUG_SYSCALL 1
 #define DEBUG_INT 0
 #define DEBUG_PROC 1
+#define DEBUG_ELF 1

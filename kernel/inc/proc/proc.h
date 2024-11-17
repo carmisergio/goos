@@ -7,19 +7,18 @@
 #include "mem/vmem.h"
 
 // Process control block
-typedef struct proc_cb_s proc_cb_t;
-typedef struct proc_cb_s
+typedef struct _proc_cb_t
 {
     // Process information
     uint32_t pid;
-    proc_cb_t *parent; // Pointer to the partnt process
+    struct _proc_cb_t *parent; // Pointer to the partnt process
 
     // Page directory
     pde_t *pagedir;
 
     // CPU Context
     cpu_ctx_t cpu_ctx;
-};
+} proc_cb_t;
 
 /*
  * Initialize process management

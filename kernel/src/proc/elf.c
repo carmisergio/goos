@@ -2,13 +2,17 @@
 
 #include <string.h>
 
+#include "config.h"
 #include "mem/mem.h"
 #include "mem/kalloc.h"
 #include "mem/vmem.h"
 #include "error.h"
 #include "log.h"
 
-// #define DEBUG
+// Configure debugging
+#if DEBUG_ELF == 1
+#define DEBUG
+#endif
 
 // ELF header
 typedef struct __attribute__((packed))

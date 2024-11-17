@@ -4,9 +4,12 @@
 #include "sync.h"
 #include "sys/io.h"
 #include "mini-printf.h"
+#include "string.h"
 
 #include "config.h"
 #include "mem/kalloc.h"
+#include "mem/physmem.h"
+#include "mem/vmem.h"
 #include "log.h"
 #include "drivers/cmos.h"
 #include "clock.h"
@@ -14,6 +17,7 @@
 #include "int/interrupts.h"
 #include "clock.h"
 #include "blkdev/blkdev.h"
+#include "drivers/isadma.h"
 
 // Configure debugging
 #if DEBUG_FDC == 1
@@ -22,7 +26,7 @@
 
 #define CMD_TIMEOUT 100
 #define CMD_RETRIES 3
-#define RW_TIMEOUT 5000
+#define RW_TIMEOUT 2000
 #define RW_RETRIES 5
 #define MOTOR_OFF_DELAY 2000
 #define MOTOR_SPINUP_TIME 300
@@ -38,6 +42,7 @@
 #define HUT 0 // Maximum
 
 #define FLOPPY_IRQ 6
+#define FLOPPY_DMA_CHAN DMA_CHAN2
 
 // IO Ports
 typedef enum
@@ -192,6 +197,13 @@ typedef struct
 
     bool media_changed;
 
+    // Track buffer
+    void *track_buf_paddr;    // Track buffer (used for DMA)
+    uint8_t *track_buf_vaddr; // Mapping of the track buffer into the KVAS
+    bool track_buf_valid;     // Is the track buffer valid?
+    uint32_t track_buf_cyl;   // What track is in the track buffer?
+    uint32_t track_buf_head;
+
 } fdc_drv_state_t;
 
 // Intenral functions
@@ -209,7 +221,7 @@ static void write_dor(dor_t val);
 static msr_t read_msr();
 static void write_dsr(uint8_t val);
 static uint8_t read_dir();
-static bool check_media_changed(drive_t drive);
+static bool get_diskchange_bit();
 static bool cmd_version(uint8_t *ver);
 static bool cmd_configure(bool implseek_en, bool fifo_en, bool poll_en,
                           uint8_t threashold, uint8_t precomp);
@@ -218,12 +230,14 @@ static bool cmd_sense_interrupt(st0_t *st0, uint8_t *cyl);
 static bool cmd_specify(uint8_t srt, uint8_t hut, uint8_t hlt, bool pio_mode);
 static bool cmd_recalibrate(drive_t drive);
 static bool cmd_seek(drive_t drive, uint8_t cyl);
-static bool cmd_read_sector(uint8_t *buf, drive_t drive, uint8_t cyl, uint8_t head,
-                            uint8_t sect);
+static bool cmd_read_track(void *buf_paddr, drive_t drive, uint8_t cyl,
+                           uint8_t head);
 static bool reset();
-static bool read_req(blkdev_t *dev, uint8_t *buf, uint32_t block);
-static bool write_req(blkdev_t *dev, uint8_t *buf, uint32_t block);
-static bool media_changed_req(blkdev_t *dev);
+static bool blkdev_read_blk_req(blkdev_t *dev, uint8_t *buf, uint32_t block);
+static bool blkdev_media_changed_req(blkdev_t *dev);
+static bool do_read_track(fdc_drv_state_t *state, uint32_t cyl, uint32_t head);
+static bool do_check_media_changed(fdc_drv_state_t *state);
+// static bool write_req(blkdev_t *dev, uint8_t *buf, uint32_t block);
 static bool access_drive(fdc_drv_state_t *state);
 static void unaccess_drive(fdc_drv_state_t *state);
 static void destroy_state(fdc_drv_state_t *state);
@@ -298,7 +312,7 @@ static bool do_fdc_init()
             continue;
 
         // Configure
-        if (!cmd_configure(true, true, false, 8, 0))
+        if (!cmd_configure(false, true, false, 8, 0))
             continue;
 
         // Lock configuration
@@ -347,6 +361,7 @@ static void init_drive(drive_t drv)
 
     slock_acquire(&state->drv_lck);
 
+    // Initialize drive
     bool succ = false;
     for (int i = 0; i < RW_RETRIES; i++)
     {
@@ -364,27 +379,7 @@ static void init_drive(drive_t drv)
         reset();
     }
 
-    // kprintf("Initialized\n");
-
-    // clock_delay_ms(1000);
-
-    // // Seek to track 79
-    // if (!cmd_seek(drv, 79))
-    //     kprintf("Seek error!\n");
-
-    // kprintf("Seek OK!\n");
-
-    // clock_delay_ms(1000);
-
-    // // Seek back home
-    // if (!cmd_seek(drv, 0))
-    //     kprintf("Seek error!\n");
-
-    // kprintf("Seek OK!\n");
-
     unaccess_drive(state);
-
-    slock_release(&state->drv_lck);
 
     // Check if initialization was succesful
     if (!succ)
@@ -394,6 +389,33 @@ static void init_drive(drive_t drv)
 #endif
         goto fail_drvfail;
     }
+
+    // Allocate track buffer
+    uint32_t track_buf_size = SECTORS * BLOCK_SIZE;
+    state->track_buf_paddr = physmem_alloc_isadma(vmem_n_pages(track_buf_size));
+    if (state->track_buf_paddr == PHYSMEM_NULL)
+    {
+#ifdef DEBUG
+        failure = "out of ISADMA memory";
+#endif
+        goto fail_nopmem_trackbuf;
+    }
+
+    // Map track buffer into the kernel virtual address space
+    state->track_buf_vaddr = vmem_map_range_anyk(state->track_buf_paddr,
+                                                 track_buf_size);
+    if (!state->track_buf_vaddr)
+    {
+#ifdef DEBUG
+        failure = "no space in KVAS";
+#endif
+        goto fail_novmem_trackbuf;
+    }
+
+    // Set track buffer state
+    state->track_buf_valid = false;
+
+    slock_release(&state->drv_lck);
 
     // Drive is correctly set up, register it with the block device subsytem
 
@@ -414,9 +436,9 @@ static void init_drive(drive_t drv)
         .major = major,
         .nblocks = CYLS * HEADS * SECTORS,
         .drvstate = state,
-        .read_blk = read_req,
-        .write_blk = write_req,
-        .media_changed = media_changed_req,
+        .read_blk = blkdev_read_blk_req,
+        .write_blk = NULL, // No write functionality for now
+        .media_changed = blkdev_media_changed_req,
     };
 
     // Register block device
@@ -435,6 +457,11 @@ fail_blkdevreg:
     // Deallocate major string
     kfree(major);
 fail_nomem_major:
+    vmem_unmap_range(state->track_buf_vaddr, track_buf_size);
+fail_novmem_trackbuf:
+    // Deallocate ISA DMA buffer
+    physmem_free_n(state->track_buf_paddr, vmem_n_pages(track_buf_size));
+fail_nopmem_trackbuf:
 fail_drvfail:
     // Get drive in a quiet state, then deallocate the state object
     destroy_state(state);
@@ -523,10 +550,10 @@ static uint8_t read_dir()
     return val;
 }
 
-static bool check_media_changed(drive_t drive)
+static bool get_diskchange_bit()
 {
     // Check bit
-    return read_dir() & (1 << 8) != 0;
+    return (read_dir() & (1 << 7)) != 0;
 }
 
 // Send parameter byte to FDC
@@ -736,24 +763,30 @@ static bool cmd_sense_interrupt(st0_t *st0, uint8_t *cyl)
 
 // Read sector from the floppy disk
 // buf: buffer to read into
-static bool cmd_read_sector(uint8_t *buf, drive_t drive, uint8_t cyl, uint8_t head,
-                            uint8_t sect)
+static bool cmd_read_track(void *buf_paddr, drive_t drive, uint8_t cyl,
+                           uint8_t head)
 {
 
     uint8_t cmd_byte = CMD_READ_DATA | CMD_BIT_MF;
 
+    // Set up DMA transfer
+    isadma_setup_channel(FLOPPY_DMA_CHAN, buf_paddr, SECTORS * BLOCK_SIZE,
+                         DMA_TOMEM, DMA_SINGLE, true);
+
+    irq6_received = false;
+
     // Send command
     if (!send_byte(cmd_byte))
-        return false;
+        goto fail;
 
     uint8_t byte0 = (head << 2) | drive;
     uint8_t byte1 = cyl;
     uint8_t byte2 = head;
-    uint8_t byte3 = sect;
-    uint8_t byte4 = 2;    // Hard coded for 512 byte sectors
-    uint8_t byte5 = sect; // End reading at the same sector we started
-    uint8_t byte6 = 0x1B; // GAP1 size
-    uint8_t byte7 = 0xFF; // Unused as byte 4 is set != 0
+    uint8_t byte3 = 1;       // Start reading from sector 1
+    uint8_t byte4 = 2;       // Hard coded for 512 byte sectors
+    uint8_t byte5 = SECTORS; // End of track is sector 18
+    uint8_t byte6 = 0x1B;    // GAP1 size
+    uint8_t byte7 = 0xFF;    // Unused as byte 4 is set != 0
 
     // Send parameters
     if (!send_byte(byte0) ||
@@ -764,36 +797,10 @@ static bool cmd_read_sector(uint8_t *buf, drive_t drive, uint8_t cyl, uint8_t he
         !send_byte(byte5) ||
         !send_byte(byte6) ||
         !send_byte(byte7))
-        return false;
+        goto fail;
 
-    // Read data
-    uint32_t bytes_read = 0;
-    while (bytes_read < SECTOR_SIZE)
-    {
-        msr_t msr;
-        // Wait for data available
-        while (!(msr = read_msr()).rqm)
-            pause();
-
-        // Execution phase terminated early
-        // or wrong data direction
-        if (!msr.ndma || !msr.dio)
-            break;
-
-        // Read byte
-        buf[bytes_read] = inb(PORT_FIFO);
-        // Don't need io delay
-
-        bytes_read++;
-    }
-
-    //// Wait for buffer overrun
-    // while (true)
-    // {
-    //     msr_t msr = read_msr();
-    //     if (!msr.ndma || !msr.busy)
-    //         break;
-    // }
+    if (!wait_irq6_timeout(RW_TIMEOUT))
+        goto fail;
 
     // Read result bytes
     st0_t st0;
@@ -807,7 +814,7 @@ static bool cmd_read_sector(uint8_t *buf, drive_t drive, uint8_t cyl, uint8_t he
         !read_data_byte(&endhead, CMD_TIMEOUT) ||
         !read_data_byte(&endsect, CMD_TIMEOUT) ||
         !read_data_byte(&two, CMD_TIMEOUT))
-        return false;
+        goto fail;
 
 #ifdef DEBUG
     kprintf("[FDC] Read result:\n");
@@ -819,101 +826,104 @@ static bool cmd_read_sector(uint8_t *buf, drive_t drive, uint8_t cyl, uint8_t he
 
     // Check command result
     if (st0.ic != ST0_IC_SUCC)
-        return false;
+        goto fail;
 
-    // Check number of bytes read
-    if (bytes_read != SECTOR_SIZE)
-        return false;
-
-    return true;
-}
-
-// Write sector to the floppy disk
-// buf: buffer to write from
-// TODO: writes don't work on QEMU
-static bool cmd_write_sector(uint8_t *buf, drive_t drive, uint8_t cyl, uint8_t head,
-                             uint8_t sect)
-{
-
-    uint8_t cmd_byte = CMD_WRITE_DATA | CMD_BIT_MF;
-
-    // Send command
-    if (!send_byte(cmd_byte))
-        return false;
-
-    uint8_t byte0 = (head << 2) | drive;
-    uint8_t byte1 = cyl;
-    uint8_t byte2 = head;
-    uint8_t byte3 = sect;
-    uint8_t byte4 = 2;    // Hard coded for 512 byte sectors
-    uint8_t byte5 = sect; // End reading at the same sector we started
-    uint8_t byte6 = 0x1B; // GAP1 size
-    uint8_t byte7 = 0xFF; // Unused as byte 4 is set != 0
-
-    // Send parameters
-    if (!send_byte(byte0) ||
-        !send_byte(byte1) ||
-        !send_byte(byte2) ||
-        !send_byte(byte3) ||
-        !send_byte(byte4) ||
-        !send_byte(byte5) ||
-        !send_byte(byte6) ||
-        !send_byte(byte7))
-        return false;
-
-    // Read data
-    uint32_t bytes_written = 0;
-    while (bytes_written < SECTOR_SIZE)
-    {
-        msr_t msr;
-        // Wait for data available
-        while (!(msr = read_msr()).rqm)
-            pause();
-
-        // Execution phase terminated early
-        // Or wrong data direction
-        if (!msr.ndma || msr.dio)
-            break;
-
-        // Read byte
-        outb(PORT_FIFO, buf[bytes_written]);
-        // Don't need io delay
-
-        bytes_written++;
-    }
-
-    // Read result bytes
-    st0_t st0;
-    st1_t st1;
-    st2_t st2;
-    uint8_t endcyl, endhead, endsect, two;
-    if (!read_data_byte(&st0.bits, CMD_TIMEOUT) ||
-        !read_data_byte(&st1.bits, CMD_TIMEOUT) ||
-        !read_data_byte(&st2.bits, CMD_TIMEOUT) ||
-        !read_data_byte(&endcyl, CMD_TIMEOUT) ||
-        !read_data_byte(&endhead, CMD_TIMEOUT) ||
-        !read_data_byte(&endsect, CMD_TIMEOUT) ||
-        !read_data_byte(&two, CMD_TIMEOUT))
-        return false;
-
-#ifdef DEBUG
-    kprintf("[FDC] Write result:\n");
-    kprintf("ST0: IC=%d, SE=%d, EC=%d, H=%d, DS=%x\n", st0.ic, st0.se, st0.ec, st0.h, st0.ds);
-    kprintf("ST1: EN=%d, DE=%d, OR=%d, ND=%d, NW=%d, MA=%d\n", st1.en, st1.de, st1.or, st1.nd, st1.nd, st1.nw, st1.ma);
-    kprintf("ST2: MD=%d, BC=%d, WC=%d, DD=%d, CM=%d\n", st2.md, st2.bc, st2.wc, st2.dd, st2.cm);
-    kprintf("endcyl: 0x%x, endhead: 0x%x, endsect: 0x%x\n", (int)endcyl, (int)endhead, (int)endsect);
-#endif
-
-    // Check command result
-    if (st0.ic != ST0_IC_SUCC)
-        return false;
-
-    // Check number of bytes read
-    if (bytes_written != SECTOR_SIZE)
-        return false;
+    // Release DMA channel
+    isadma_release_channel(FLOPPY_DMA_CHAN);
 
     return true;
+
+fail:
+    isadma_release_channel(FLOPPY_DMA_CHAN);
+    return false;
 }
+
+// // Write sector to the floppy disk
+// // buf: buffer to write from
+// // TODO: writes don't work on QEMU
+// static bool cmd_write_sector(uint8_t *buf, drive_t drive, uint8_t cyl, uint8_t head,
+//                              uint8_t sect)
+// {
+
+//     uint8_t cmd_byte = CMD_WRITE_DATA | CMD_BIT_MF;
+
+//     // Send command
+//     if (!send_byte(cmd_byte))
+//         return false;
+
+//     uint8_t byte0 = (head << 2) | drive;
+//     uint8_t byte1 = cyl;
+//     uint8_t byte2 = head;
+//     uint8_t byte3 = sect;
+//     uint8_t byte4 = 2;    // Hard coded for 512 byte sectors
+//     uint8_t byte5 = sect; // End reading at the same sector we started
+//     uint8_t byte6 = 0x1B; // GAP1 size
+//     uint8_t byte7 = 0xFF; // Unused as byte 4 is set != 0
+
+//     // Send parameters
+//     if (!send_byte(byte0) ||
+//         !send_byte(byte1) ||
+//         !send_byte(byte2) ||
+//         !send_byte(byte3) ||
+//         !send_byte(byte4) ||
+//         !send_byte(byte5) ||
+//         !send_byte(byte6) ||
+//         !send_byte(byte7))
+//         return false;
+
+//     // Read data
+//     uint32_t bytes_written = 0;
+//     while (bytes_written < SECTOR_SIZE)
+//     {
+//         msr_t msr;
+//         // Wait for data available
+//         while (!(msr = read_msr()).rqm)
+//             pause();
+
+//         // Execution phase terminated early
+//         // Or wrong data direction
+//         if (!msr.ndma || msr.dio)
+//             break;
+
+//         // Read byte
+//         outb(PORT_FIFO, buf[bytes_written]);
+//         // Don't need io delay
+
+//         bytes_written++;
+//     }
+
+//     // Read result bytes
+//     st0_t st0;
+//     st1_t st1;
+//     st2_t st2;
+//     uint8_t endcyl, endhead, endsect, two;
+//     if (!read_data_byte(&st0.bits, CMD_TIMEOUT) ||
+//         !read_data_byte(&st1.bits, CMD_TIMEOUT) ||
+//         !read_data_byte(&st2.bits, CMD_TIMEOUT) ||
+//         !read_data_byte(&endcyl, CMD_TIMEOUT) ||
+//         !read_data_byte(&endhead, CMD_TIMEOUT) ||
+//         !read_data_byte(&endsect, CMD_TIMEOUT) ||
+//         !read_data_byte(&two, CMD_TIMEOUT))
+//         return false;
+
+// #ifdef DEBUG
+//     kprintf("[FDC] Write result:\n");
+//     kprintf("ST0: IC=%d, SE=%d, EC=%d, H=%d, DS=%x\n", st0.ic, st0.se, st0.ec, st0.h, st0.ds);
+//     kprintf("ST1: EN=%d, DE=%d, OR=%d, ND=%d, NW=%d, MA=%d\n", st1.en, st1.de, st1.or, st1.nd, st1.nd, st1.nw, st1.ma);
+//     kprintf("ST2: MD=%d, BC=%d, WC=%d, DD=%d, CM=%d\n", st2.md, st2.bc, st2.wc, st2.dd, st2.cm);
+//     kprintf("endcyl: 0x%x, endhead: 0x%x, endsect: 0x%x\n", (int)endcyl, (int)endhead, (int)endsect);
+// #endif
+
+//     // Check command result
+//     if (st0.ic != ST0_IC_SUCC)
+//         return false;
+
+//     // Check number of bytes read
+//     if (bytes_written != SECTOR_SIZE)
+//         return false;
+
+//     return true;
+// }
 
 // Reset FDC
 static bool reset()
@@ -974,7 +984,7 @@ static bool access_drive(fdc_drv_state_t *state)
     state->motor_on = true;
 
     // Send specify (Enable PIO mode)
-    if (!cmd_specify(SRT, HUT, HLT, true))
+    if (!cmd_specify(SRT, HUT, HLT, false))
     {
 #ifdef DEBUG
         kprintf("[FDC] Specify error\n");
@@ -1008,7 +1018,7 @@ static void unaccess_drive(fdc_drv_state_t *state)
 }
 
 // Block device read operation
-static bool read_req(blkdev_t *dev, uint8_t *buf, uint32_t block)
+static bool blkdev_read_blk_req(blkdev_t *dev, uint8_t *buf, uint32_t block)
 {
 
     fdc_drv_state_t *state = (fdc_drv_state_t *)dev->drvstate;
@@ -1024,6 +1034,58 @@ static bool read_req(blkdev_t *dev, uint8_t *buf, uint32_t block)
     uint8_t cyl, head, sect;
     lba_to_chs(&cyl, &head, &sect, block);
 
+    // Check if media has changed
+    // Takes care of invalidating the track cache if necessary
+    do_check_media_changed(state);
+
+    // Check if the track in the track cache is already correct
+    if (!state->track_buf_valid || state->track_buf_cyl != cyl || state->track_buf_head != head)
+    {
+        // We actually need to read from the drive
+        if (!do_read_track(state, cyl, head))
+            goto fail;
+    }
+
+    // Copy correct sector to the caller buffer
+    // NOTE: the CHS conversion function makes sure that sect is already
+    //       in the 1-18 range
+    memcpy(buf, state->track_buf_vaddr + (sect - 1) * BLOCK_SIZE,
+           BLOCK_SIZE);
+
+    // Release drive lock
+    slock_release(&state->drv_lck);
+
+    return true;
+
+fail:
+    slock_release(&state->drv_lck);
+    return false;
+}
+
+// Block device media changed status request
+static bool blkdev_media_changed_req(blkdev_t *dev)
+{
+    fdc_drv_state_t *state = (fdc_drv_state_t *)dev->drvstate;
+
+    // If media changed flag was set by a previous operation,
+    // signal the caller immediately
+    if (state->media_changed)
+    {
+        // Clear flag
+        state->media_changed = false;
+        return true;
+    }
+
+    // Check media chaned state
+    if (do_check_media_changed(state))
+        return true;
+
+    return false;
+}
+
+// Read a track into the track buffer
+static bool do_read_track(fdc_drv_state_t *state, uint32_t cyl, uint32_t head)
+{
     // Retry command many times
     bool read_succ = false;
     for (int i = 0; i < RW_RETRIES; i++)
@@ -1032,111 +1094,146 @@ static bool read_req(blkdev_t *dev, uint8_t *buf, uint32_t block)
         if (!access_drive(state))
             goto reset;
 
-        // Set up datarate
-        write_dsr(DATARATE_500KBPS);
-
-        // Check media changed
-        if (check_media_changed(state->drive))
-            state->media_changed = true;
-
         // Seek to cylinder
         if (!cmd_seek(state->drive, cyl))
             goto reset;
-        // NOTE: we don't need to seek explicitly thanks to implied seek
 
         // Do read
-        if (!cmd_read_sector(buf, state->drive, cyl, head, sect))
+        if (!cmd_read_track(state->track_buf_paddr, state->drive, cyl, head))
             goto reset;
 
         read_succ = true;
         break;
     reset:
+        kprintf("RESET!\n");
         reset();
     }
 
     // Set up motor off timer
     unaccess_drive(state);
 
-    // Release drive lock
-    slock_release(&state->drv_lck);
-
-    return read_succ;
-}
-
-// Block device write operation
-static bool write_req(blkdev_t *dev, uint8_t *buf, uint32_t block)
-{
-    fdc_drv_state_t *state = (fdc_drv_state_t *)dev->drvstate;
-
-#ifdef DEBUG
-    kprintf("[FDC] Drive %d write block %d\n", state->drive, block);
-#endif
-
-    // Acquire drive lock
-    slock_acquire(&state->drv_lck);
-
-    // Convert block address to chs
-    uint8_t cyl, head, sect;
-    lba_to_chs(&cyl, &head, &sect, block);
-
-    // Retry command many times
-    bool write_succ = false;
-    for (int i = 0; i < RW_RETRIES; i++)
+    if (!read_succ)
     {
-        // Set up drive for access
-        if (!access_drive(state))
-            goto reset;
-
-        // Check media changed
-        if (check_media_changed(state->drive))
-            state->media_changed = true;
-
-        // // Seek to cylinder
-        // if (!cmd_seek(state->drive, 0))
-        //     goto reset;
-        // NOTE: we don't need to seek explicitly thanks to implied seek
-
-        // Do read
-        if (!cmd_write_sector(buf, state->drive, cyl, head, sect))
-            goto reset;
-
-        write_succ = true;
-        break;
-    reset:
-        reset();
+        state->track_buf_valid = false;
+        return false;
     }
 
-    // Set up motor off timer
+    // Update track buffer state
+    state->track_buf_valid = true;
+    state->track_buf_cyl = cyl;
+    state->track_buf_head = head;
+
+    return true;
+}
+
+// Check if media has changed, if so recalibrate the drive
+// Returns: true if media had changed
+// Drive lock must be held by the caller
+static bool do_check_media_changed(fdc_drv_state_t *state)
+{
+
+    // Access drive
+    if (!access_drive(state))
+    {
+        // Media changed = true is the safe state
+        state->media_changed = true;
+        state->track_buf_valid = false;
+        return true;
+    }
+
+    // Check media changed bit
+    bool val = get_diskchange_bit();
+
+    kprintf("Media changed bit: %d\n", val);
+
+    // Recalibrate drive (to reset media changed bit)
+    if (val)
+    {
+        for (int i = 0; i < RW_RETRIES; i++)
+        {
+            // Set up drive for access
+            // This is unnecessary in the first iteration, but oh well
+            if (!access_drive(state))
+                goto reset;
+
+            // Recalibrate
+            if (!cmd_recalibrate(state->drive))
+                goto reset;
+
+            // Seek to cylinder 1
+            // This is done because if the drive is already on cylinder 0,
+            // the recalibrate command does not clear the media changed bit
+            if (!cmd_seek(state->drive, 1))
+                goto reset;
+
+            kprintf("Recalibration success!\n");
+
+            break;
+        reset:
+            reset();
+        }
+    }
+
     unaccess_drive(state);
 
-    // Release drive lock
-    slock_release(&state->drv_lck);
+    // If media has changed, invalidate the track buffer
+    if (val)
+        state->track_buf_valid = false;
 
-    return write_succ;
+    return val;
 }
 
-static bool media_changed_req(blkdev_t *dev)
-{
-    fdc_drv_state_t *state = (fdc_drv_state_t *)dev->drvstate;
+// // Block device write operation
+// static bool write_req(blkdev_t *dev, uint8_t *buf, uint32_t block)
+// {
+//     fdc_drv_state_t *state = (fdc_drv_state_t *)dev->drvstate;
 
-    // Acquire drive lock
-    slock_acquire(&state->drv_lck);
+// #ifdef DEBUG
+//     kprintf("[FDC] Drive %d write block %d\n", state->drive, block);
+// #endif
 
-    // Select drive
-    select_drive(state->drive);
+//     // Acquire drive lock
+//     slock_acquire(&state->drv_lck);
 
-    // Check media changed
-    if (check_media_changed(state->drive))
-        state->media_changed = true;
+//     // Convert block address to chs
+//     uint8_t cyl, head, sect;
+//     lba_to_chs(&cyl, &head, &sect, block);
 
-    uint8_t res = state->media_changed;
-    state->media_changed = false;
+//     // Retry command many times
+//     bool write_succ = false;
+//     for (int i = 0; i < RW_RETRIES; i++)
+//     {
+//         // Set up drive for access
+//         if (!access_drive(state))
+//             goto reset;
 
-    // Release drive lock
-    slock_release(&state->drv_lck);
+//         // Check media changed
+//         if (check_media_changed(state->drive))
+//             state->media_changed = true;
 
-    return res;
-}
+//         // // Seek to cylinder
+//         // if (!cmd_seek(state->drive, 0))
+//         //     goto reset;
+//         // NOTE: we don't need to seek explicitly thanks to implied seek
+
+//         // Do read
+//         if (!cmd_write_sector(buf, state->drive, cyl, head, sect))
+//             goto reset;
+
+//         write_succ = true;
+//         break;
+//     reset:
+//         reset();
+//     }
+
+//     // Set up motor off timer
+//     unaccess_drive(state);
+
+//     // Release drive lock
+//     slock_release(&state->drv_lck);
+
+//     return write_succ;
+// }
 
 // Convert LBA addres to CHS
 static inline void lba_to_chs(uint8_t *c, uint8_t *h, uint8_t *s,
@@ -1150,9 +1247,6 @@ static inline void lba_to_chs(uint8_t *c, uint8_t *h, uint8_t *s,
 // Destroy state, handling all potential cases
 static void destroy_state(fdc_drv_state_t *state)
 {
-    // Acquire device lock
-    slock_acquire(&state->drv_lck);
-
     // Delete motor timer
     if (state->has_motor_timer)
         clock_clear_timer(state->motor_timer);

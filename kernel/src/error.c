@@ -33,6 +33,8 @@ char *error_get_message(int32_t err)
         return "not permitted";
     case E_INVREQ:
         return "invalid request";
+    case E_MDCHNG:
+        return "media changed";
     case E_UNKNOWN:
     default:
 

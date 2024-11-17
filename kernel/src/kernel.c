@@ -35,12 +35,13 @@
 #include "fs/path.h"
 #include "proc/elf.h"
 #include "error.h"
+#include "drivers/isadma.h"
 
 const char *SYSTEM_DISK_DEV = "fd0";
 const char *SYSTEM_DISK_FS = "fat";
 const char *INIT_BIN = "0:/BIN/MINIMAL";
 
-// Boot information structure
+// Global Boot information structure
 boot_info_t boot_info;
 
 void logging_init();
@@ -48,6 +49,37 @@ void subsystems_init();
 void drivers_init();
 bool userspace_init();
 int32_t start_init_proc();
+
+void test_file_read()
+{
+    vfs_file_handle_t file = vfs_open("0:/BIN/MINIMAL", 0);
+
+    uint8_t *buf = kalloc(100);
+
+    int32_t res;
+
+    while (true)
+    {
+
+        if ((res = vfs_read(file, buf, 0, 100)) < 100)
+        {
+            kprintf("Read error: %s\n", error_get_message(res));
+        }
+        else
+        {
+            kprintf("Read OK!\n");
+        }
+
+        // // Result
+        // for (size_t i = 0; i < 100 / 2; i++)
+        // {
+        //     kprintf("%02x ", buf[i]);
+        // }
+        // kprintf("\n");
+
+        console_readline(NULL, 0);
+    }
+}
 
 /*
  * Main kernel entry point
@@ -93,6 +125,7 @@ void subsystems_init()
     console_init_kbd();
     blkdev_init();
     vfs_init();
+    isadma_init();
 }
 
 // Initialize drivers
@@ -118,6 +151,9 @@ bool userspace_init()
         return false;
     }
 
+    test_file_read();
+    return false;
+
     // Initialize process managemnt
     proc_init();
 
@@ -127,6 +163,9 @@ bool userspace_init()
         kprintf("[INIT] Unable to start init process: %s\n", error_get_message(res));
         return false;
     }
+
+    // Should never reach here
+    return true;
 }
 
 int32_t start_init_proc()
@@ -142,7 +181,7 @@ int32_t start_init_proc()
     // Load program
     int32_t res;
     void *entry;
-    if (!(res = elf_load(file, &entry)) < 0)
+    if ((res = elf_load(file, &entry)) < 0)
         goto fail;
 
     // Close file

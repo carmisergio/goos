@@ -15,8 +15,8 @@ typedef struct
 
 // Internal function prototypes
 static uint8_t **allocate_blocklist(uint32_t nblocks);
-static bool read_req(blkdev_t *dev, uint8_t *buf, uint32_t block);
-static bool write_req(blkdev_t *dev, uint8_t *buf, uint32_t block);
+static bool blkdev_read_blk_req(blkdev_t *dev, uint8_t *buf, uint32_t block);
+static bool write_req(blkdev_t *dev, const uint8_t *buf, uint32_t block);
 void ramdisk_create(uint32_t id, uint32_t nblocks)
 {
     // Construct major
@@ -52,7 +52,7 @@ void ramdisk_create(uint32_t id, uint32_t nblocks)
         .major = major,
         .drvstate = state,
         .nblocks = nblocks,
-        .read_blk = read_req,
+        .read_blk = blkdev_read_blk_req,
         .write_blk = write_req,
         .media_changed = NULL,
     };
@@ -91,7 +91,7 @@ static uint8_t **allocate_blocklist(uint32_t nblocks)
     return blklist;
 }
 
-static bool read_req(blkdev_t *dev, uint8_t *buf, uint32_t block)
+static bool blkdev_read_blk_req(blkdev_t *dev, uint8_t *buf, uint32_t block)
 {
     rd_state_t *state = (rd_state_t *)dev->drvstate;
 
@@ -104,7 +104,7 @@ static bool read_req(blkdev_t *dev, uint8_t *buf, uint32_t block)
     return true;
 }
 
-static bool write_req(blkdev_t *dev, uint8_t *buf, uint32_t block)
+static bool write_req(blkdev_t *dev, const uint8_t *buf, uint32_t block)
 {
     rd_state_t *state = (rd_state_t *)dev->drvstate;
 

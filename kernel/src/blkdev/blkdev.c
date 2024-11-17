@@ -32,8 +32,8 @@ typedef struct
 } handle_slot_t;
 
 // Internal functions
-devlst_entry_t *find_by_major(const char *major);
-blkdev_handle_t find_handle();
+static devlst_entry_t *find_by_major(const char *major);
+static blkdev_handle_t find_handle();
 static inline size_t handle_to_index(const blkdev_handle_t handle);
 static inline blkdev_handle_t slot_to_handle(size_t idx);
 
@@ -209,7 +209,7 @@ bool blkdev_media_changed(const blkdev_handle_t handle)
 }
 
 /* Internal functions */
-devlst_entry_t *find_by_major(const char *major)
+static devlst_entry_t *find_by_major(const char *major)
 {
     dllist_node_t *cur = dllist_head(&dev_list);
     while (cur != NULL)
@@ -229,7 +229,7 @@ devlst_entry_t *find_by_major(const char *major)
     return NULL;
 }
 
-blkdev_handle_t find_handle()
+static blkdev_handle_t find_handle()
 {
     for (size_t i = 0; i < MAX_HANDLES; i++)
     {

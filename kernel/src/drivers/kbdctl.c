@@ -345,6 +345,10 @@ void kbdctl_init()
 
 void kbdctl_reset_cpu()
 {
+
+#ifdef DEBUG
+    kprintf("[KBDCTL] Resetting CPU\n");
+#endif
     write_cmd(CMD_PULSE_OUTP0);
 }
 

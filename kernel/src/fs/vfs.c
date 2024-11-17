@@ -28,8 +28,7 @@ static vfs_fs_type_t *find_fs_type(const char *name);
 static bool is_filesystem_busy(mount_point_t mp);
 static vfs_file_handle_t find_free_file_slot();
 static int32_t find_file_by_inode_id(mount_point_t mp, uint32_t id);
-static bool compare_inodes(vfs_inode_t *a, vfs_inode_t *b);
-static int32_t lookup_path(vfs_inode_t **res, vfs_inode_t *root, char *path);
+static int32_t lookup_path(vfs_inode_t **res, vfs_inode_t *root, const char *path);
 static void superblock_unmount(vfs_superblock_t *sb);
 static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, char *file_name);
 static void inode_destroy(vfs_inode_t *inode);
@@ -77,7 +76,7 @@ bool vfs_register_fs_type(vfs_fs_type_t fs_type)
     return true;
 }
 
-int32_t vfs_mount(char *dev, mount_point_t mp, char *fs)
+int32_t vfs_mount(const char *dev, mount_point_t mp, const char *fs)
 {
     // Check if mountpoint is valid and not already mounted
     if (mp >= MAX_MOUNT_POINTS || mount_points[mp] != NULL)
@@ -119,7 +118,7 @@ int32_t vfs_unmount(mount_point_t mp)
     return 0;
 }
 
-vfs_file_handle_t vfs_open(char *path, fopts opt)
+vfs_file_handle_t vfs_open(const char *path, fopts opt)
 {
     uint32_t ret;
 
@@ -325,7 +324,7 @@ static int32_t find_file_by_inode_id(mount_point_t mp, uint32_t id)
 
 // Find inode for a certain absolute path
 // Returns 0 on success
-static int32_t lookup_path(vfs_inode_t **res, vfs_inode_t *root, char *path)
+static int32_t lookup_path(vfs_inode_t **res, vfs_inode_t *root, const char *path)
 {
     vfs_inode_t *cur_inode = root;
 

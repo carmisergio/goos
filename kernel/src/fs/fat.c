@@ -100,6 +100,9 @@ typedef struct
     blkdev_handle_t dev_handle;
     bpb_t bpb;
 
+    // Did the underlying block device signal a media change?
+    bool media_changed;
+
     // Buffers
     uint8_t *fat_cache; // FAT cache
     uint8_t *io_buf;    // I/O buffer
@@ -116,29 +119,27 @@ typedef struct
 } inode_private_t;
 
 // Internal functions
-static int32_t fs_type_mount(char *dev, vfs_superblock_t **mount);
+static int32_t fs_type_mount(const char *dev, vfs_superblock_t **mount);
 static bool read_bpb(fs_state_t *fs_state);
 static bool read_fat_cache(fs_state_t *fs_state);
 static void superblock_unmount(vfs_superblock_t *mount);
 static void inode_destroy(vfs_inode_t *inode);
 static bool check_fat_magically(bpb_t *bpb);
-static uint32_t total_sectors(bpb_t *bbp);
 static void destroy_fs_state(fs_state_t *state);
 static vfs_inode_t *get_root_inode(fs_state_t *fs_state);
 static int64_t inode_readdir(vfs_inode_t *inode, vfs_dirent_t *buf,
                              uint32_t offset, uint32_t n);
-static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, char *name);
+static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, const char *name);
 static int64_t inode_read(vfs_inode_t *inode, uint8_t *buf,
                           uint32_t offset, uint32_t n);
 static void direntry_name_from_short(char *name, fat_dir_entry_t *entry);
-static void direntry_process_lfn(char *name, fat_dir_entry_t *entry);
 static inline uint32_t nblocks(uint32_t size);
 static void free_inode_pdata(inode_private_t *pdata);
 static uint32_t follow_sector_chain(uint32_t *sector_list,
                                     fs_state_t *fs_state, uint32_t start_cluster);
 static bool read_fat_entry(uint32_t *entry, fs_state_t *fs_state, uint32_t cluster);
+static bool check_media_changed(fs_state_t *fs_state);
 static uint32_t cluster_start_sector(fs_state_t *fs_state, uint32_t cluster);
-static uint32_t dbg_sector_list(vfs_inode_t *inode);
 
 void fat_init()
 {
@@ -154,7 +155,7 @@ void fat_init()
 
 /* Internal functions */
 
-static int32_t fs_type_mount(char *dev, vfs_superblock_t **superblock)
+static int32_t fs_type_mount(const char *dev, vfs_superblock_t **superblock)
 {
     kprintf("[FAT] Mounting device %s\n", dev);
 
@@ -174,6 +175,8 @@ static int32_t fs_type_mount(char *dev, vfs_superblock_t **superblock)
     // Initialize state
     fs_state->dev_handle = dev_handle;
     fs_state->fat_cache = NULL;
+    fs_state->io_buf = NULL;
+    fs_state->media_changed = false;
 
     // Allocate read buffer
     if (!(fs_state->io_buf = kalloc(BLOCK_SIZE)))
@@ -310,11 +313,6 @@ static bool check_fat_magically(bpb_t *bpb)
     return true;
 }
 
-uint32_t total_sectors(bpb_t *bbp)
-{
-    return bbp->n_sectors == 0 ? bbp->large_sector_count : bbp->n_sectors;
-}
-
 static void destroy_fs_state(fs_state_t *state)
 {
     // Free FAT cache
@@ -397,6 +395,10 @@ static int64_t inode_readdir(vfs_inode_t *inode, vfs_dirent_t *buf,
     fs_state_t *fs_state = inode->fs_state;
     inode_private_t *pdata = inode->priv_data;
 
+    // Handle media change
+    if (check_media_changed(fs_state))
+        return E_MDCHNG;
+
     // Find out number of directory sectors
     uint32_t n_sectors = inode->size / BLOCK_SIZE;
 
@@ -414,7 +416,9 @@ static int64_t inode_readdir(vfs_inode_t *inode, vfs_dirent_t *buf,
 
         // Read all directory entries in the sector
         for (fat_dir_entry_t *entry = (fat_dir_entry_t *)fs_state->io_buf;
-             i < fs_state->io_buf + BLOCK_SIZE && dirs_read < n; entry++)
+             entry < (fat_dir_entry_t *)fs_state->io_buf + BLOCK_SIZE &&
+             dirs_read < n;
+             entry++)
         {
 
             // If first byte of entry is 0, there are no more dirctories
@@ -454,7 +458,7 @@ static int64_t inode_readdir(vfs_inode_t *inode, vfs_dirent_t *buf,
             if (dirs_skipped == offset)
             {
                 buf[dirs_read].size = entry->s_size;
-                buf[dirs_read].type = entry->attrs & ATTR_DIR != 0;
+                buf[dirs_read].type = (entry->attrs & ATTR_DIR) != 0;
                 dirs_read++;
             }
             else
@@ -469,7 +473,7 @@ static int64_t inode_readdir(vfs_inode_t *inode, vfs_dirent_t *buf,
     return dirs_read;
 }
 
-static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, char *name)
+static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, const char *name)
 {
     fs_state_t *fs_state = inode->fs_state;
     inode_private_t *pdata = inode->priv_data;
@@ -480,7 +484,7 @@ static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, char *name)
     // Read directory sector by sector
     uint32_t dirs_read = 0;
     bool more_dirs = true;
-    bool has_lfn = false; // Do we have a long filename in the buffer?
+    // bool has_lfn = false; // Do we have a long filename in the buffer?
     char name_buf[FILENAME_MAX];
     for (size_t i = 0; i < n_sectors && more_dirs; i++)
     {
@@ -492,7 +496,7 @@ static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, char *name)
 
         // Read all directory entries in the sector
         for (fat_dir_entry_t *entry = (fat_dir_entry_t *)fs_state->io_buf;
-             i < fs_state->io_buf + BLOCK_SIZE; entry++)
+             entry < (fat_dir_entry_t *)fs_state->io_buf + BLOCK_SIZE; entry++)
         {
 
             // If first byte of entry is 0, there are no more dirctories
@@ -585,7 +589,7 @@ static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, char *name)
                 return 0;
             }
 
-            has_lfn = false;
+            // has_lfn = false;
         }
 
         return E_NOENT;
@@ -599,6 +603,10 @@ static int64_t inode_read(vfs_inode_t *inode, uint8_t *buf,
 {
     fs_state_t *fs_state = inode->fs_state;
     inode_private_t *pdata = inode->priv_data;
+
+    // Handle media change
+    if (check_media_changed(fs_state))
+        return E_MDCHNG;
 
     // Find out number of file blocks
     uint32_t n_blocks = nblocks(inode->size);
@@ -679,12 +687,6 @@ static void direntry_name_from_short(char *name, fat_dir_entry_t *entry)
     name[n] = 0;
 }
 
-// Read long filename entry into name buffer
-static void direntry_process_lfn(char *name, fat_dir_entry_t *entry)
-{
-    // TODO:later
-}
-
 static inline uint32_t nblocks(uint32_t size)
 {
     return (size + BLOCK_SIZE - 1) / BLOCK_SIZE;
@@ -746,23 +748,24 @@ static bool read_fat_entry(uint32_t *entry, fs_state_t *fs_state,
     return true;
 }
 
+// Check if the filesystem is in a valid state
+// (The block device's media hasn't been changed)
+static bool check_media_changed(fs_state_t *fs_state)
+{
+    // If filesystem is already in an invalid state, exit
+    if (fs_state->media_changed)
+        return true;
+
+    // Check if underlying block device media change has been raised
+    if (blkdev_media_changed(fs_state->dev_handle))
+        fs_state->media_changed = true;
+
+    return fs_state->media_changed;
+}
+
 // Compute starting sector of a cluster
 static uint32_t cluster_start_sector(fs_state_t *fs_state, uint32_t cluster)
 {
     return fs_state->data_start +
            (cluster - 2) * fs_state->bpb.sectors_per_cluster; // Cluster offset
-}
-
-static uint32_t dbg_sector_list(vfs_inode_t *inode)
-{
-    inode_private_t *pdata = inode->priv_data;
-
-    // Find out number of directory sectors
-    uint32_t n_sectors = inode->size / BLOCK_SIZE;
-
-    for (size_t i = 0; i < n_sectors; i++)
-    {
-        kprintf(" %d", pdata->sector_list[i]);
-    }
-    kprintf("\n");
 }

@@ -68,7 +68,7 @@ struct _vfs_inode_t
 
     // Lookup child in directory inode by name
     // vfs_inode_t *lookup(vfs_inode_t *inode, vfs_inode_t**res, char *name)
-    int32_t (*lookup)(vfs_inode_t *, vfs_inode_t **, char *);
+    int32_t (*lookup)(vfs_inode_t *, vfs_inode_t **, const char *);
 
     // Destroy inode
     // Deallocate inode and any private data
@@ -98,7 +98,7 @@ typedef struct
 
     // Mount operation
     // vfs_superblock_t mount(char *device, vfs_superblock_t **mount)
-    int32_t (*mount)(char *, vfs_superblock_t **);
+    int32_t (*mount)(const char *, vfs_superblock_t **);
 
 } vfs_fs_type_t;
 
@@ -125,7 +125,7 @@ bool vfs_register_fs_type(vfs_fs_type_t fs_type);
  * #### Returns
  *   0 on success, otherwise a negative value indicating the error
  */
-int32_t vfs_mount(char *dev, mount_point_t mp, char *fs);
+int32_t vfs_mount(const char *dev, mount_point_t mp, const char *fs);
 
 /*
  * Unmount filesystem
@@ -148,7 +148,7 @@ int32_t vfs_unmount(mount_point_t mp);
  * #### Returns
  *    file handle (>= 0) on success, else error
  */
-vfs_file_handle_t vfs_open(char *path, fopts opt);
+vfs_file_handle_t vfs_open(const char *path, fopts opt);
 
 /*
  * Close VFS file

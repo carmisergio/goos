@@ -35,7 +35,6 @@ static void block_chain_remove(block_t *bptr);
 static block_t *defrag_block(block_t *bptr);
 static block_t *sizelst_find_insert_pos(block_t *new);
 static block_t *addrlst_find_insert_pos(block_t *new);
-static block_t *sizelst_find_insert_pos_start(block_t *new, block_t *start);
 static void sizelst_insert_after(block_t *after, block_t *new);
 static void addrlst_insert_after(block_t *after, block_t *new);
 static void sizelst_remove(block_t *bptr);
@@ -261,21 +260,6 @@ static block_t *defrag_block(block_t *bptr)
         }
     }
 
-    // // If it has defragged, reposition block in the size list
-    // if (has_defragged)
-    // {
-    //     // Temporarely remove block from size list
-    //     sizelst_remove(bptr);
-
-    //     // Find new position
-    //     // New size can only be bigger than the previous, so start looking for a new position
-    //     // from the current location
-    //     block_t *pos = sizelst_find_insert_pos_start(bptr, bptr->addrlst_prev);
-
-    //     // Put block back in size list
-    //     sizelst_insert_after(pos, bptr);
-    // }
-
     return bptr;
 }
 
@@ -314,27 +298,6 @@ static block_t *addrlst_find_insert_pos(block_t *new)
     {
         after = cur;
         cur = cur->addrlst_next;
-    }
-
-    return after;
-}
-
-// Find position in size list where to insert new node, with starting point
-// Starts searching from head if starting point is NULL
-// Retruns a pointer to the node AFTER which to insert the new node,
-// NULL if the correct position is the head of the list
-static block_t *sizelst_find_insert_pos_start(block_t *new, block_t *start)
-{
-    block_t *cur = start == NULL ? sizelst_head : start;
-    block_t *after = NULL;
-
-    // Traverse size list and find either end of list or first node
-    // with bigger size, in which case the correct position is after the
-    // previous node
-    while (cur != NULL && cur->size < new->size)
-    {
-        after = cur;
-        cur = cur->sizelst_next;
     }
 
     return after;

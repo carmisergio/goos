@@ -11,8 +11,7 @@ typedef size_t blkdev_handle_t;
 #define BLKDEV_HANDLE_NULL 0
 
 // Representation of a block device
-typedef struct blkdev_s blkdev_t;
-typedef struct blkdev_s
+typedef struct _blkdev_t
 {
     // Device info
     char *major;      // Name of block device
@@ -23,12 +22,12 @@ typedef struct blkdev_s
 
     /// Operations
     // Read block
-    bool (*read_blk)(blkdev_t *, uint8_t *, uint32_t); // (drvstate, buffer, blkid) -> success
+    bool (*read_blk)(struct _blkdev_t *, uint8_t *, uint32_t); // (drvstate, buffer, blkid) -> success
     // Write block
-    bool (*write_blk)(blkdev_t *, uint8_t *, uint32_t); // (drvstate, buffer, blkid) -> success
+    bool (*write_blk)(struct _blkdev_t *, const uint8_t *, uint32_t); // (drvstate, buffer, blkid) -> success
     // Check if media was changed
-    bool (*media_changed)(blkdev_t *); // (drvstate) -> true: media chagned
-};
+    bool (*media_changed)(struct _blkdev_t *); // (drvstate) -> true: media chagned
+} blkdev_t;
 
 // Initialize block device subsystem
 void blkdev_init();

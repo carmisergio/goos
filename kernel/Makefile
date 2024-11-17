@@ -47,6 +47,7 @@ $(SRC)/drivers/ps2kbd/ps2kbd.o \
 $(SRC)/drivers/ramdisk.o \
 $(SRC)/drivers/cmos.o \
 $(SRC)/drivers/fdc.o \
+$(SRC)/drivers/isadma.o \
 $(SRC)/kbd/kbd.o \
 $(SRC)/kbd/keymaps/us_qwerty.o \
 $(SRC)/console/console.o \

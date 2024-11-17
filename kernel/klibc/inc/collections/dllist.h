@@ -5,13 +5,12 @@
 // Doubly linked list
 
 // Doubly linked list node
-typedef struct dllist_node dllist_node_t;
-typedef struct dllist_node
+typedef struct _dllist_node
 {
     void *data;
-    dllist_node_t *next;
-    dllist_node_t *prev;
-};
+    struct _dllist_node *next;
+    struct _dllist_node *prev;
+} dllist_node_t;
 
 // Doubly linked list type
 typedef struct

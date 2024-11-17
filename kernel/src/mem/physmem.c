@@ -19,6 +19,8 @@ uint32_t physmem_first_free_page;
 uint32_t physmem_free_pages;
 
 #define MAX_SRMMAP_ENTRIES 4
+#define ISADMA_MEM_LIMIT (16 * 1024 * 1024) // 16M
+#define ISADMA_BOUNDARY_SIZE (64 * 1024)    // 64K
 
 /* Entry in the software reserved memory map used during
    physical memory initialization */
@@ -173,6 +175,12 @@ void physmem_free(void *addr)
     mark_page_free(page);
 }
 
+void physmem_free_n(void *addr, uint32_t n)
+{
+    for (size_t i = 0; i < n; i++)
+        physmem_free((char *)addr + n * MEM_PAGE_SIZE);
+}
+
 /**
  * Checks if a page of physical memory is free
  * Panics on nonexistent page
@@ -182,6 +190,42 @@ bool physmem_is_free(void *addr)
     uint32_t page = (uint32_t)addr / MEM_PAGE_SIZE;
 
     return is_page_free(page);
+}
+
+void *physmem_alloc_isadma(uint32_t n)
+{
+    uint32_t run = 0;
+    for (uint32_t i = 0; i < ISADMA_MEM_LIMIT / MEM_PAGE_SIZE; i++)
+    {
+        // If page is first of new 64K block, reset run
+        if ((i * MEM_PAGE_SIZE) % ISADMA_BOUNDARY_SIZE == 0)
+            run = 0;
+
+        // Check if page is free
+        if (is_page_free(i))
+        {
+            // Count free page
+            run++;
+
+            // If enough free pages have been found
+            if (run >= n)
+            {
+                // Mark all pages as allocated
+                for (uint32_t page = i - n + 1; page <= i; page++)
+                    mark_page_used(page);
+
+                // Return address of first page
+                return (void *)((i - n + 1) * MEM_PAGE_SIZE);
+            }
+        }
+        else
+        {
+            // Reset run
+            run = 0;
+        }
+    }
+
+    return (void *)PHYSMEM_NULL;
 }
 
 /* Internal functions */

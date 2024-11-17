@@ -327,6 +327,6 @@ void do_dishonorable_exit()
 
     // This will appear to the parent process as the result from the
     // exec() call
-    pcb->cpu_ctx.eax = 0; // Because the exit call was succesful
-    pcb->cpu_ctx.ebx = (uint32_t)E_TERM;
+    pcb->cpu_ctx.eax = 0;              // Because the exit call was succesful
+    pcb->cpu_ctx.ebx = (uint32_t)-100; // TODO: define process return codes
 }

@@ -1,9 +1,9 @@
-#include "fs/path.h";
+#include "fs/path.h"
 
 /*
  * Consume single known character
  */
-bool parse_ctag(char **input, char tag)
+bool parse_ctag(const char **input, char tag)
 {
     if (**input == tag)
     {
@@ -17,10 +17,10 @@ bool parse_ctag(char **input, char tag)
 /*
  * Parse unsigned 32 bit number
  */
-bool parse_uint32(uint32_t *res, char **input)
+bool parse_uint32(uint32_t *res, const char **input)
 {
     bool has_num = false;
-    char *cur = *input;
+    const char *cur = *input;
     *res = 0;
     while (*cur)
     {
@@ -54,9 +54,9 @@ bool parse_uint32(uint32_t *res, char **input)
  * Parse mountpoint from file path
  * Consumes the ':' character
  */
-bool parse_path_mountpoint(mount_point_t *mp, char **input)
+bool parse_path_mountpoint(mount_point_t *mp, const char **input)
 {
-    char *cur = *input;
+    const char *cur = *input;
 
     // Parse mountpoint number
     if (!parse_uint32(mp, &cur))
@@ -76,9 +76,9 @@ bool parse_path_mountpoint(mount_point_t *mp, char **input)
  * NOTE: name must be a pointer to a buffer of at least MAX_FILENAME + 1 bytes
  * Ignores character after MAX_FILENAME
  */
-bool parse_path_filename(char *name, char **input)
+bool parse_path_filename(char *name, const char **input)
 {
-    char *cur = *input;
+    const char *cur = *input;
 
     // Consume leading '/' (possibly multiple, possibly 0)
     while (parse_ctag(&cur, '/'))
