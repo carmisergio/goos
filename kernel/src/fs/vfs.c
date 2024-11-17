@@ -124,7 +124,7 @@ vfs_file_handle_t vfs_open(const char *path, fopts opt)
 
     // Parse mountpoint
     mount_point_t mp;
-    if (!parse_path_mountpoint(&mp, &path))
+    if (!path_parse_mountpoint(&mp, &path))
         // No mountpoint in path
         return E_NOENT;
 
@@ -330,7 +330,7 @@ static int32_t lookup_path(vfs_inode_t **res, vfs_inode_t *root, const char *pat
 
     // Follow path
     char file_name[FILENAME_MAX];
-    while (parse_path_filename(file_name, &path))
+    while (path_parse_filename(file_name, &path))
     {
         // Look up child inode
         vfs_inode_t *child;

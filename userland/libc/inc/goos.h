@@ -6,7 +6,9 @@
 
 #include <stdint.h>
 
-//// Types
+//// Constants
+#define FILENAME_MAX 32
+#define PATH_MAX 1024
 
 //// System calls
 
@@ -52,6 +54,20 @@ int32_t exit(int32_t status);
  *             the child process return value
  */
 int32_t exec(char *path, int32_t *status);
+
+/*
+ * Change process current working directory
+ * #### Parameters:
+ *   - path: null-terminated path
+ */
+int32_t change_cwd(char *path);
+
+/*
+ * Get curernt working directory of process
+ * #### Parameters:
+ *   - buf: pointer to a buffer of at least MAX_PATH + 1 bytes
+ */
+int32_t get_cwd(char *buf);
 
 ////// System errors
 #define E_UNKNOWN -1   // Unknown error

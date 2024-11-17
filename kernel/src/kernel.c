@@ -50,34 +50,31 @@ void drivers_init();
 bool userspace_init();
 int32_t start_init_proc();
 
-void test_file_read()
+void test_canonicize()
 {
-    vfs_file_handle_t file = vfs_open("0:/BIN/MINIMAL", 0);
-
-    uint8_t *buf = kalloc(100);
-
-    int32_t res;
-
+    char res[PATH_MAX + 1];
+    char canon[PATH_MAX + 1];
+    char buf[PATH_MAX + 1];
     while (true)
     {
+        kprintf("> ");
+        uint32_t n = console_readline(buf, PATH_MAX);
+        buf[n] = 0;
 
-        if ((res = vfs_read(file, buf, 0, 100)) < 100)
+        if (!path_canonicalize(canon, buf))
         {
-            kprintf("Read error: %s\n", error_get_message(res));
+            kprintf("ERR!\n");
+            continue;
         }
+
+        kprintf("* ");
+        n = console_readline(buf, PATH_MAX);
+        buf[n] = 0;
+
+        if (path_resolve_relative(res, canon, buf))
+            kprintf("Result: %s\n", res);
         else
-        {
-            kprintf("Read OK!\n");
-        }
-
-        // // Result
-        // for (size_t i = 0; i < 100 / 2; i++)
-        // {
-        //     kprintf("%02x ", buf[i]);
-        // }
-        // kprintf("\n");
-
-        console_readline(NULL, 0);
+            kprintf("Err!\n");
     }
 }
 
@@ -150,9 +147,6 @@ bool userspace_init()
         kprintf("[INIT] Unable to mount system disk: %s\n", error_get_message(res));
         return false;
     }
-
-    test_file_read();
-    return false;
 
     // Initialize process managemnt
     proc_init();

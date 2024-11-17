@@ -1105,7 +1105,6 @@ static bool do_read_track(fdc_drv_state_t *state, uint32_t cyl, uint32_t head)
         read_succ = true;
         break;
     reset:
-        kprintf("RESET!\n");
         reset();
     }
 
@@ -1144,8 +1143,6 @@ static bool do_check_media_changed(fdc_drv_state_t *state)
     // Check media changed bit
     bool val = get_diskchange_bit();
 
-    kprintf("Media changed bit: %d\n", val);
-
     // Recalibrate drive (to reset media changed bit)
     if (val)
     {
@@ -1165,8 +1162,6 @@ static bool do_check_media_changed(fdc_drv_state_t *state)
             // the recalibrate command does not clear the media changed bit
             if (!cmd_seek(state->drive, 1))
                 goto reset;
-
-            kprintf("Recalibration success!\n");
 
             break;
         reset:

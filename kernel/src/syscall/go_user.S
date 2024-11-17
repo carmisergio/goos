@@ -11,13 +11,6 @@ go_userspace:
     // (skip return address)
     mov 4(%esp), %ebx
     
-    // Set up segment registers
-    mov PROC_CTX_DS(%ebx), %eax
-    mov %eax, %ds
-    mov %eax, %es
-    mov %eax, %fs
-    mov %eax, %gs
-    // (SS is set by IRET)
     
     // Push SS
     push PROC_CTX_SS(%ebx)
@@ -28,6 +21,9 @@ go_userspace:
     // pushf
     push PROC_CTX_CS(%ebx)// CS
     push PROC_CTX_EIP(%ebx) // EIP
+
+    // Push EBX (it will be popped shortly)
+    push PROC_CTX_EBX(%ebx)
     
     // Restore registers state
     mov PROC_CTX_EAX(%ebx), %eax // EAX 
@@ -36,8 +32,19 @@ go_userspace:
     mov PROC_CTX_ESI(%ebx), %esi // ESI 
     mov PROC_CTX_EDI(%ebx), %edi // EDI 
     mov PROC_CTX_EBP(%ebx), %ebp // EBP
-    mov PROC_CTX_EBX(%ebx), %ebx // EBX last, because it contains
-                                 // the pointer to the context
+
+    // Set segment registers except for DS, since
+    // We need it to set up register values
+    mov PROC_CTX_DS(%ebx), %ebx
+    mov %ebx, %ds
+    mov %ebx, %es
+    mov %ebx, %fs
+    mov %ebx, %gs
+    // (SS is set by IRET)
+    
+    // From now on we cannot directly access data
+    pop %ebx // Restore EBX (was pushed to the stack previously)
+
 
     // To userspace and beyond!
     iret

@@ -5,6 +5,7 @@
 
 #include "proc/ctx.h"
 #include "mem/vmem.h"
+#include "fs/vfs.h"
 
 // Process control block
 typedef struct _proc_cb_t
@@ -18,6 +19,9 @@ typedef struct _proc_cb_t
 
     // CPU Context
     cpu_ctx_t cpu_ctx;
+
+    // Current working directory
+    char cwd[PATH_MAX + 1];
 } proc_cb_t;
 
 /*

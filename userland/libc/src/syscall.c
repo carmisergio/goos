@@ -23,6 +23,8 @@ typedef enum
     // Process management system calls
     SYSCALL_EXIT = 0x1000,
     SYSCALL_EXEC = 0x1001,
+    SYSCALL_CHANGE_CWD = 0x1002,
+    SYSCALL_GET_CWD = 0x1003,
 } syscall_n_t;
 
 // Internal function prototyes
@@ -54,6 +56,17 @@ int32_t exec(char *path, int32_t *status)
 {
     uint32_t n = strlen(path);
     return syscall_2_2(SYSCALL_EXEC, (uint32_t)path, n, (uint32_t *)status);
+}
+
+int32_t change_cwd(char *path)
+{
+    uint32_t n = strlen(path);
+    return syscall_2(SYSCALL_CHANGE_CWD, (uint32_t)path, n);
+}
+
+int32_t get_cwd(char *buf)
+{
+    return syscall_1(SYSCALL_GET_CWD, (uint32_t)buf);
 }
 
 /* Internal functions */

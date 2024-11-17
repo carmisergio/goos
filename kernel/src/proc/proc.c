@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include <stdbool.h>
+#include "string.h"
 
 #include "sync.h"
 
@@ -15,6 +16,9 @@
 #include "log.h"
 
 #define PROC_STACK_PAGES 4
+
+// Working director of the init process
+#define INIT_CWD "0:"
 
 // Configure debugging
 #if DEBUG_PROC == 1
@@ -42,6 +46,7 @@ void proc_init()
     pcb->pid = 0;                  // Init process has PID 0
     pcb->parent = NULL;            // No parent
     pcb->pagedir = vmem_cur_vas(); // Init process inherits bootstrap VAS
+    strcpy(pcb->cwd, INIT_CWD);    // Current working directory
 
     // Allocate process stack
     if (!alloc_proc_stack(PROC_STACK_PAGES))
@@ -98,6 +103,7 @@ int32_t proc_push()
     pcb->pid = parent->pid + 1;
     pcb->parent = parent;
     pcb->pagedir = new_vas;
+    strcpy(pcb->cwd, parent->cwd); // Inherits parent CWD
 
     // Set current process
     cur_proc = pcb;

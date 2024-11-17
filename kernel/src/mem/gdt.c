@@ -150,8 +150,7 @@ gdt_entry_t gdt[6] = {
         .base_low = 0,
         .base_high = 0,
         .limit_low = 0xFFFF,
-        .limit_high = 0xF,
-        // Access byte
+        .limit_high = 0xB,
         .access = GDT_P | GDT_USER | GDT_S | GDT_E | GDT_RW,
         // Flags
         .flags = GDT_G | GDT_DB,
@@ -162,7 +161,7 @@ gdt_entry_t gdt[6] = {
         .base_low = 0,
         .base_high = 0,
         .limit_low = 0xFFFF,
-        .limit_high = 0xF,
+        .limit_high = 0xB,
         // Access byte
         .access = GDT_P | GDT_USER | GDT_S | GDT_RW,
         // Flags

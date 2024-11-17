@@ -15,6 +15,7 @@
 #include "proc/elf.h"
 #include "error.h"
 #include "mem/kalloc.h"
+#include "fs/path.h"
 
 #include "clock.h"
 #include "console/console.h"
@@ -49,16 +50,20 @@ typedef enum
     // Process management system calls
     SYSCALL_EXIT = 0x1000,
     SYSCALL_EXEC = 0x1001,
+    SYSCALL_CHANGE_CWD = 0x1002,
+    SYSCALL_GET_CWD = 0x1003,
 } syscall_n_t;
 
 void iret_to_kernel(interrupt_context_t *int_ctx, void *dst);
 void syscall_handler();
 void syscall_dummy();
-void syscall_delay_ms(uint32_t time);
-void syscall_console_write(char *s, size_t n);
-int32_t syscall_console_readline(char *buf, size_t n);
+void syscall_delay_ms(proc_cb_t *pcb);
+void syscall_console_write(proc_cb_t *pcb);
+void syscall_console_readline(proc_cb_t *pcb);
 void syscall_exit(proc_cb_t *pcb);
 void syscall_exec(proc_cb_t *pcb);
+void syscall_change_cwd(proc_cb_t *pcb);
+void syscall_get_cwd(proc_cb_t *pcb);
 void dishonorable_exit_handler();
 void do_dishonorable_exit();
 
@@ -127,16 +132,15 @@ void syscall_handler()
     {
         // Clock syscalls
     case SYSCALL_DELAY_MS:
-        syscall_delay_ms(pcb->cpu_ctx.ebx);
+        syscall_delay_ms(pcb);
         break;
 
         // Console syscalls
     case SYSCALL_CONSOLE_WRITE:
-        syscall_console_write((char *)pcb->cpu_ctx.ebx, pcb->cpu_ctx.ecx);
+        syscall_console_write(pcb);
         break;
     case SYSCALL_CONSOLE_READLINE:
-        pcb->cpu_ctx.eax = syscall_console_readline((char *)pcb->cpu_ctx.ebx,
-                                                    pcb->cpu_ctx.ecx);
+        syscall_console_readline(pcb);
         break;
 
         // Process management syscalls
@@ -145,6 +149,12 @@ void syscall_handler()
         break;
     case SYSCALL_EXEC:
         syscall_exec(pcb);
+        break;
+    case SYSCALL_CHANGE_CWD:
+        syscall_change_cwd(pcb);
+        break;
+    case SYSCALL_GET_CWD:
+        syscall_get_cwd(pcb);
         break;
 
     default:
@@ -163,14 +173,22 @@ void syscall_handler()
 
 // Delay Milliseconds syscall
 // Waits n milliseconds before returning control to the program
-void syscall_delay_ms(uint32_t time)
+void syscall_delay_ms(proc_cb_t *pcb)
 {
+    // Get parameters
+    uint32_t time = pcb->cpu_ctx.ebx;
+
     clock_delay_ms(time);
 }
 
 // Console write syscall
-void syscall_console_write(char *s, size_t n)
+void syscall_console_write(proc_cb_t *pcb)
 {
+
+    // Get parameters
+    char *s = (char *)pcb->cpu_ctx.ebx;
+    uint32_t n = pcb->cpu_ctx.ecx;
+
     // Check string pointer
     if (!vmem_validate_user_ptr_mapped(s, n))
     {
@@ -182,16 +200,23 @@ void syscall_console_write(char *s, size_t n)
 }
 
 // Console readline syscall
-int32_t syscall_console_readline(char *buf, size_t n)
+void syscall_console_readline(proc_cb_t *pcb)
 {
+    // Get parameters
+    char *buf = (char *)pcb->cpu_ctx.ebx;
+    uint32_t n = pcb->cpu_ctx.ecx;
+
     // Check string pointer
     if (!vmem_validate_user_ptr(buf, n))
     {
         do_dishonorable_exit();
-        return -1;
+        return;
     }
 
-    return console_readline(buf, n);
+    int32_t res = console_readline(buf, n);
+
+    // Set return value
+    pcb->cpu_ctx.eax = res;
 }
 
 // Exit syscall
@@ -248,9 +273,17 @@ void syscall_exec(proc_cb_t *pcb)
     memcpy(path, p_path, p_n);
     path[p_n] = 0;
 
+    // Resolve relative path
+    char abspath[PATH_MAX + 1];
+    if (!path_resolve_relative(abspath, pcb->cwd, path))
+    {
+        res = E_NOENT;
+        goto fail;
+    }
+
     // Open file
     vfs_file_handle_t file;
-    if ((file = vfs_open(path, 0)) < 0)
+    if ((file = vfs_open(abspath, 0)) < 0)
     {
         res = file;
         goto fail;
@@ -288,6 +321,80 @@ fail_destroyproc:
 fail:
     // Return value to caller process
     pcb->cpu_ctx.eax = (uint32_t)res;
+}
+
+// Change current working directory syscall
+void syscall_change_cwd(proc_cb_t *pcb)
+{
+    int32_t res;
+
+    // Get parameters
+    char *p_path = (char *)pcb->cpu_ctx.ebx;
+    uint32_t p_n = pcb->cpu_ctx.ecx;
+
+    // Validate path pointer
+    if (!vmem_validate_user_ptr(p_path, p_n))
+    {
+        do_dishonorable_exit();
+        return;
+    }
+
+    // Check length of path
+    if (p_n > PATH_MAX)
+    {
+        res = E_INVREQ;
+        goto fail;
+    }
+
+    // Copy relative path to kernel memory
+    char relpath[PATH_MAX + 1];
+    memcpy(relpath, p_path, p_n);
+    relpath[p_n] = 0;
+
+    // Resolve relative path
+    char abspath[PATH_MAX + 1];
+    if (!path_resolve_relative(abspath, pcb->cwd, relpath))
+    {
+        res = E_NOENT;
+        goto fail;
+    }
+
+    // Change current working directory of the process
+    strcpy(pcb->cwd, abspath);
+
+    // Success!
+    res = 0;
+
+fail:
+    // Set result
+    pcb->cpu_ctx.eax = res;
+}
+
+// Get current working directory of a process
+void syscall_get_cwd(proc_cb_t *pcb)
+{
+    int32_t res;
+
+    // Get parameters
+    char *p_buf = (char *)pcb->cpu_ctx.ebx;
+    // The length of the buffer is implied to be PATH_MAX + 1
+
+    // Validate buffer pointer
+    if (!vmem_validate_user_ptr(p_buf, PATH_MAX + 1))
+    {
+        do_dishonorable_exit();
+        return;
+    }
+
+    // Get current working directory of process
+    strcpy(p_buf, pcb->cwd);
+
+    // Success!
+    res = 0;
+
+fail:
+    // Set result
+    pcb->cpu_ctx.eax = res;
 }
 
 // Called by handle_dishonoraable_exit, not syscall
