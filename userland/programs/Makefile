@@ -10,6 +10,7 @@ $(OUT_DIR)/minimal \
 $(OUT_DIR)/child \
 $(OUT_DIR)/hello \
 $(OUT_DIR)/shell \
+$(OUT_DIR)/btlships \
 
 # Standard library
 STDLIB_DIR:=../libc

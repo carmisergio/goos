@@ -38,7 +38,8 @@ void kbd_event_receiver(kbd_event_t e)
         panic("USER_REQUEST", "User requested kernel panic");
 
     // Ctrl + C
-    if (e.keysym == KS_c && e.mod.ctrl && !e.mod.alt)
+    if ((e.keysym == KS_c || e.keysym == KS_C) && e.mod.ctrl && !e.mod.alt &&
+        !e.mod.shift)
     {
         // Ignore CTRL + C in init process
         if (proc_cur()->parent)

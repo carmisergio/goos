@@ -8,7 +8,7 @@
 .section .text
 .global _start // Program entry point
 .global main   // Main function
-.global exit   // Exit system call
+.global _g_exit   // Exit system call
 
 _start:
     
@@ -17,7 +17,7 @@ _start:
     
     // Exit system call
     push %eax
-    call exit
+    call _g_exit
     
     // We shouldn't be here
     // If we fall through, do the leasat destructive thing we can

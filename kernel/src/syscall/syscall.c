@@ -39,13 +39,14 @@
 typedef enum
 {
     // Clock system calls
-    SYSCALL_GET_SYSTEM_TIME = 0x0100,
+    // SYSCALL_GET_SYSTEM_TIME = 0x0100,
     SYSCALL_GET_LOCAL_TIME = 0x0101,
     SYSCALL_DELAY_MS = 0x0110,
 
     // Console system calls
     SYSCALL_CONSOLE_WRITE = 0x0200,
     SYSCALL_CONSOLE_READLINE = 0x0201,
+    SYSCALL_CONSOLE_GETCHAR = 0x0202,
 
     // Process management system calls
     SYSCALL_EXIT = 0x1000,
@@ -57,9 +58,11 @@ typedef enum
 void iret_to_kernel(interrupt_context_t *int_ctx, void *dst);
 void syscall_handler();
 void syscall_dummy();
+void syscall_get_local_time(proc_cb_t *pcb);
 void syscall_delay_ms(proc_cb_t *pcb);
 void syscall_console_write(proc_cb_t *pcb);
 void syscall_console_readline(proc_cb_t *pcb);
+void syscall_console_getchar(proc_cb_t *pcb);
 void syscall_exit(proc_cb_t *pcb);
 void syscall_exec(proc_cb_t *pcb);
 void syscall_change_cwd(proc_cb_t *pcb);
@@ -131,6 +134,9 @@ void syscall_handler()
     switch (syscall_n)
     {
         // Clock syscalls
+    case SYSCALL_GET_LOCAL_TIME:
+        syscall_get_local_time(pcb);
+        break;
     case SYSCALL_DELAY_MS:
         syscall_delay_ms(pcb);
         break;
@@ -141,6 +147,9 @@ void syscall_handler()
         break;
     case SYSCALL_CONSOLE_READLINE:
         syscall_console_readline(pcb);
+        break;
+    case SYSCALL_CONSOLE_GETCHAR:
+        syscall_console_getchar(pcb);
         break;
 
         // Process management syscalls
@@ -169,6 +178,12 @@ void syscall_handler()
 
     // Return to process
     go_userspace(&pcb->cpu_ctx);
+}
+
+// Gets the local time in seconds
+void syscall_get_local_time(proc_cb_t *pcb)
+{
+    pcb->cpu_ctx.eax = clock_get_local();
 }
 
 // Delay Milliseconds syscall
@@ -206,14 +221,26 @@ void syscall_console_readline(proc_cb_t *pcb)
     char *buf = (char *)pcb->cpu_ctx.ebx;
     uint32_t n = pcb->cpu_ctx.ecx;
 
+    kprintf("[SYSCALL] buf: 0x%x, n: %u \n", buf, n);
+
     // Check string pointer
-    if (!vmem_validate_user_ptr(buf, n))
+    if (!vmem_validate_user_ptr_mapped(buf, n))
     {
+        kprintf("dishon\n");
         do_dishonorable_exit();
         return;
     }
 
     int32_t res = console_readline(buf, n);
+
+    // Set return value
+    pcb->cpu_ctx.eax = res;
+}
+
+// Console getchar syscall
+void syscall_console_getchar(proc_cb_t *pcb)
+{
+    uint32_t res = (uint32_t)console_getchar();
 
     // Set return value
     pcb->cpu_ctx.eax = res;
@@ -255,7 +282,7 @@ void syscall_exec(proc_cb_t *pcb)
     uint32_t p_n = pcb->cpu_ctx.ecx;
 
     // Validate path pointer
-    if (!vmem_validate_user_ptr(p_path, p_n))
+    if (!vmem_validate_user_ptr_mapped(p_path, p_n))
     {
         do_dishonorable_exit();
         return;
@@ -333,7 +360,7 @@ void syscall_change_cwd(proc_cb_t *pcb)
     uint32_t p_n = pcb->cpu_ctx.ecx;
 
     // Validate path pointer
-    if (!vmem_validate_user_ptr(p_path, p_n))
+    if (!vmem_validate_user_ptr_mapped(p_path, p_n))
     {
         do_dishonorable_exit();
         return;
@@ -380,7 +407,7 @@ void syscall_get_cwd(proc_cb_t *pcb)
     // The length of the buffer is implied to be PATH_MAX + 1
 
     // Validate buffer pointer
-    if (!vmem_validate_user_ptr(p_buf, PATH_MAX + 1))
+    if (!vmem_validate_user_ptr_mapped(p_buf, PATH_MAX + 1))
     {
         do_dishonorable_exit();
         return;

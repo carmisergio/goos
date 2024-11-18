@@ -311,6 +311,20 @@ int32_t console_readline(char *s, size_t n)
     }
 }
 
+char console_getchar()
+{
+    char ascii;
+
+    // Wait until a valid character
+    do
+    {
+        kbd_event_t kbd_event = wait_key();
+        ascii = kbd_event_to_ascii(kbd_event);
+    } while (!ascii);
+
+    return ascii;
+}
+
 void console_clear()
 {
     vga_clearscr(cstate.bg);

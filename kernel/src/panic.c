@@ -19,7 +19,7 @@ void panic(char *code, char *message)
     // Clear screen
     console_reset();
     console_set_bgcol(CONS_COL_RED);
-    console_set_fgcol(CONS_COL_WHITE);
+    console_set_fgcol(CONS_COL_HI_WHITE);
     console_clear();
     console_set_curspos(0, 0);
 

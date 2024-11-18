@@ -60,6 +60,14 @@ void console_write(char *s, size_t n);
 int32_t console_readline(char *s, size_t n);
 
 /**
+ * Read single character from system console
+ * Returns immediately when a character is read
+ * Doesn't echo characters
+ * #### Returns: character
+ */
+char console_getchar();
+
+/**
  * Clear console
  */
 void console_clear();

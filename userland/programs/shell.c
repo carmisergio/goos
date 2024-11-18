@@ -32,19 +32,19 @@
 
 void clear_console()
 {
-    puts("\033[2J\033[H");
+    putss("\033[2J\033[H");
 }
 
 void print_splash_message()
 {
     printf("Welcome to %s\n", COLOR_HI_BLUE);
-    puts("  __ _  ___   ___  ___  \n");
-    puts(" / _` |/ _ \\ / _ \\/ __| \n");
-    puts("| (_| | (_) | (_) \\__ \\\n");
-    puts(" \\__, |\\___/ \\___/|___/ \n");
-    puts("  __/ |                 \n");
+    putss("  __ _  ___   ___  ___  \n");
+    putss(" / _` |/ _ \\ / _ \\/ __| \n");
+    putss("| (_| | (_) | (_) \\__ \\\n");
+    putss(" \\__, |\\___/ \\___/|___/ \n");
+    putss("  __/ |                 \n");
     printf(" |___/                  %sv0.0.1 \n", COLOR_RESET);
-    puts("\n");
+    putss("\n");
 }
 
 void print_prompt()
@@ -53,7 +53,7 @@ void print_prompt()
     cwd[0] = 0;
 
     // Get current working directory
-    get_cwd(cwd);
+    _g_get_cwd(cwd);
 
     // Print prompt
     printf("%s[goos %s]$%s ", COLOR_HI_BLUE, cwd, COLOR_RESET);
@@ -83,13 +83,14 @@ void process_input(const char *input)
     // Process input
     // For now, just execute program
     int32_t res, status;
-    if ((res = exec(input, &status)) < 0)
+    if ((res = _g_exec(input, &status)) < 0)
     {
         printf("Error: %s\n", error_get_message(res));
         return;
     }
 
     // Print process exit value
+    putss(COLOR_RESET); // Reset color
     printf("\nProcess exited with status %d\n", status);
 }
 

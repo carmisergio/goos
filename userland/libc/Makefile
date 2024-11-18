@@ -15,6 +15,9 @@ $(SRC)/string.o \
 $(SRC)/error.o \
 $(SRC)/stdio/console.o \
 $(SRC)/stdio/mini-printf.o \
+$(SRC)/stdlib/rand.o \
+$(SRC)/stdlib/proc.o \
+$(SRC)/time.o \
 
 # Programs
 CC:=i386-elf-gcc

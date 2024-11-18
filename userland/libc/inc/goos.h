@@ -13,12 +13,18 @@
 //// System calls
 
 /*
+ * Get local time
+ * #### Returns: current local time in seconds since epoch
+ */
+uint32_t _g_get_local_time();
+
+/*
  * Delay Milliseconds
  * Blocks execution for a specified amount of time
  * #### Parameters;
  *   - time: time to sleep for
  */
-void delay_ms(uint32_t time);
+void _g_delay_ms(uint32_t time);
 
 /*
  * Write to the system console
@@ -29,7 +35,7 @@ void delay_ms(uint32_t time);
  *   - str: pointer to the string to print
  *   - n: number of characters
  */
-void console_write(const char *str, uint32_t n);
+void _g_console_write(const char *str, uint32_t n);
 
 /*
  * Read a line from the system console
@@ -37,14 +43,20 @@ void console_write(const char *str, uint32_t n);
  *   - buf: pointer to the buffer where to read the string
  *   - n: maximum number of characters
  */
-int32_t console_readline(const char *str, uint32_t n);
+int32_t _g_console_readline(const char *str, uint32_t n);
+
+/*
+ * Get a character from system console
+ * Doesn't echo characters
+ */
+char console_getchar();
 
 /*
  * Return control to the parent process
  * #### Parameters:
  *   - status: status code that will be passed to the parent
  */
-int32_t exit(int32_t status);
+int32_t _g_exit(int32_t status);
 
 /*
  * Execute child process
@@ -53,21 +65,21 @@ int32_t exit(int32_t status);
  *   - status: pointer to a variable that will hold
  *             the child process return value
  */
-int32_t exec(const char *path, int32_t *status);
+int32_t _g_exec(const char *path, int32_t *status);
 
 /*
  * Change process current working directory
  * #### Parameters:
  *   - path: null-terminated path
  */
-int32_t change_cwd(const char *path);
+int32_t _g_change_cwd(const char *path);
 
 /*
  * Get curernt working directory of process
  * #### Parameters:
  *   - buf: pointer to a buffer of at least MAX_PATH + 1 bytes
  */
-int32_t get_cwd(char *buf);
+int32_t _g_get_cwd(char *buf);
 
 ////// System errors
 #define E_UNKNOWN -1   // Unknown error

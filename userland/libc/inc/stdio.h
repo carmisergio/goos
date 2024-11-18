@@ -9,9 +9,21 @@
 int puts(const char *s);
 
 /*
+ * Write string to system console without newline
+'*/
+int putss(const char *s);
+
+/*
  * Get string of maximum given size from system console
  */
 char *getsn(char *buf, size_t n);
+
+/*
+ * Get character from system console
+ * NOTE: input is not buffered
+ * NOTE: doesn't echo characters
+ */
+int getchar();
 
 /*
  * Everyone knows what printf does...

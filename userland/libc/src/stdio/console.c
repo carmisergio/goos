@@ -8,15 +8,27 @@
 
 int puts(const char *s)
 {
-    console_write(s, strlen(s));
+    _g_console_write(s, strlen(s));
+    _g_console_write("\n", 1);
+    return 0;
+}
+
+int putss(const char *s)
+{
+    _g_console_write(s, strlen(s));
     return 0;
 }
 
 char *getsn(char *buf, size_t n)
 {
-    int32_t read = console_readline(buf, n);
+    int32_t read = _g_console_readline(buf, n);
     buf[read] = 0;
     return buf;
+}
+
+int getchar()
+{
+    return console_getchar();
 }
 
 void printf(const char *fmt, ...)
@@ -31,7 +43,7 @@ void printf(const char *fmt, ...)
     mini_vsnprintf(buf, PRINTF_MAX, fmt, args);
 
     // Write string to console
-    puts(buf);
+    putss(buf);
 
     // Clean up valist
     va_end(args);

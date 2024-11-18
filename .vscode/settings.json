@@ -29,7 +29,8 @@
     "goos.h": "c",
     "error.h": "c",
     "cctype": "c",
-    "__locale": "c"
+    "__locale": "c",
+    "stdlib.h": "c"
   },
   "C_Cpp.default.compilerPath": "/usr/bin/gcc",
   "makefile.configureOnOpen": false
