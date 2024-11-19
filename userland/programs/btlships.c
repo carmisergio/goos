@@ -10,6 +10,9 @@
 #define COLS 9
 #define SHIPS 10
 
+#define AI_DELAY_MS_MIN 500
+#define AI_DELAY_MS_MAX 1500
+
 /****************
  * Computer ai memory
  */
@@ -353,7 +356,7 @@ bool get_input_coordinate(int *row, int *column)
     int raw_column, tmp_row, tmp_column;
 
     // Read input from console
-    char input[2]; // Maximum input is two characters
+    char input[3]; // Maximum input is two characters
     getsn(input, 2);
 
     // Get input and fail if not succesful
@@ -1226,7 +1229,7 @@ int computer_turn_difficult(int display_map[2][ROWS][COLS], int player_ship_map[
     int i, j, k;
     int hit_row, hit_column;
     int was_hit_row = 0, was_hit_column = 0;
-    bool found_hit_andnot_sunk, selected_highprob_move;
+    bool found_hit_andnot_sunk, selected_highprob_move = false;
 
     int ship_hit_index;
 
@@ -1265,7 +1268,7 @@ int computer_turn_difficult(int display_map[2][ROWS][COLS], int player_ship_map[
 
     computer_hit_map[hit_row][hit_column] = true;
 
-    sleep(1);
+    msleep(rand() % (AI_DELAY_MS_MAX - AI_DELAY_MS_MIN + 1) + AI_DELAY_MS_MIN);
 
     // See if we hit a ship
     ship_hit_index = player_ship_map[hit_row][hit_column];

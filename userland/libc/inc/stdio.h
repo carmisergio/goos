@@ -15,6 +15,7 @@ int putss(const char *s);
 
 /*
  * Get string of maximum given size from system console
+ * NOTE: buf must be of at least n + 1 bytes
  */
 char *getsn(char *buf, size_t n);
 

@@ -7,6 +7,7 @@
 #include "fs/path.h"
 #include "panic.h"
 #include "error.h"
+#include "log.h"
 
 #define MAX_MOUNT_POINTS 16
 #define MAX_FILES 32 // Number of simultaneously open files
@@ -202,6 +203,9 @@ vfs_file_handle_t vfs_open(const char *path, fopts opt)
     file->inode = inode;
     file->ref_count = 1;
     file->write = write;
+    file->mp = mp;
+
+    kprintf("[VFS] Opened file: %u\n", file_handle);
 
     return file_handle;
 
@@ -214,6 +218,7 @@ fail:
 
 void vfs_close(vfs_file_handle_t file)
 {
+    kprintf("[VFS] Close file: %u\n", file);
     // Check if file is valid and open
     if (file >= MAX_FILES || open_files[file].ref_count == 0)
         return;

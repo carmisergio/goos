@@ -81,6 +81,22 @@ int32_t _g_change_cwd(const char *path);
  */
 int32_t _g_get_cwd(char *buf);
 
+/*
+ * Mount filesystem
+ * #### Parameters:
+ *   - mp: mount point
+ *   - dev: block device name
+ *   - fs_type: filesystem type
+ */
+int32_t _g_mount(uint32_t mp, const char *dev, const char *fs_type);
+
+/*
+ * Unmount filesystem
+ * #### Parameters:
+ *   - mp: mount point
+ */
+int32_t _g_unmount(uint32_t mp);
+
 ////// System errors
 #define E_UNKNOWN -1   // Unknown error
 #define E_NOIMPL -2    // Not implemented

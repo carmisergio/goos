@@ -481,6 +481,10 @@ static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, const char *n
     // Find out number of directory sectors
     uint32_t n_sectors = inode->size / BLOCK_SIZE;
 
+    // Handle media change
+    if (check_media_changed(fs_state))
+        return E_MDCHNG;
+
     // Read directory sector by sector
     uint32_t dirs_read = 0;
     bool more_dirs = true;
@@ -758,7 +762,10 @@ static bool check_media_changed(fs_state_t *fs_state)
 
     // Check if underlying block device media change has been raised
     if (blkdev_media_changed(fs_state->dev_handle))
+    {
+        kprintf("[FAT] Media changed\n");
         fs_state->media_changed = true;
+    }
 
     return fs_state->media_changed;
 }

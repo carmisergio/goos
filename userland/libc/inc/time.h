@@ -17,3 +17,8 @@ time_t time(time_t *tloc);
  * Sleep seconds
  */
 void sleep(time_t time);
+
+/*
+ * Sleep milliseconds
+ */
+void msleep(uint32_t ms);

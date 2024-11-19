@@ -18,6 +18,7 @@ $(SRC)/stdio/mini-printf.o \
 $(SRC)/stdlib/rand.o \
 $(SRC)/stdlib/proc.o \
 $(SRC)/time.o \
+$(SRC)/parse.o \
 
 # Programs
 CC:=i386-elf-gcc

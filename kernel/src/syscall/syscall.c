@@ -53,6 +53,10 @@ typedef enum
     SYSCALL_EXEC = 0x1001,
     SYSCALL_CHANGE_CWD = 0x1002,
     SYSCALL_GET_CWD = 0x1003,
+
+    // Filesystem syscalls
+    SYSCALL_MOUNT = 0x1100,
+    SYSCALL_UNMOUNT = 0x1101,
 } syscall_n_t;
 
 void iret_to_kernel(interrupt_context_t *int_ctx, void *dst);
@@ -66,6 +70,8 @@ void syscall_console_getchar(proc_cb_t *pcb);
 void syscall_exit(proc_cb_t *pcb);
 void syscall_exec(proc_cb_t *pcb);
 void syscall_change_cwd(proc_cb_t *pcb);
+void syscall_mount(proc_cb_t *pcb);
+void syscall_unmount(proc_cb_t *pcb);
 void syscall_get_cwd(proc_cb_t *pcb);
 void dishonorable_exit_handler();
 void do_dishonorable_exit();
@@ -166,6 +172,14 @@ void syscall_handler()
         syscall_get_cwd(pcb);
         break;
 
+        // Filesystem system calls
+    case SYSCALL_MOUNT:
+        syscall_mount(pcb);
+        break;
+    case SYSCALL_UNMOUNT:
+        syscall_unmount(pcb);
+        break;
+
     default:
         // Unknown system call
         // Terminate user process
@@ -221,12 +235,9 @@ void syscall_console_readline(proc_cb_t *pcb)
     char *buf = (char *)pcb->cpu_ctx.ebx;
     uint32_t n = pcb->cpu_ctx.ecx;
 
-    kprintf("[SYSCALL] buf: 0x%x, n: %u \n", buf, n);
-
     // Check string pointer
     if (!vmem_validate_user_ptr_mapped(buf, n))
     {
-        kprintf("dishon\n");
         do_dishonorable_exit();
         return;
     }
@@ -386,6 +397,15 @@ void syscall_change_cwd(proc_cb_t *pcb)
         goto fail;
     }
 
+    // Check if directory exists
+    int32_t file;
+    if ((file = vfs_open(abspath, FOPT_DIR)) < 0)
+    {
+        res = file;
+        goto fail;
+    }
+    vfs_close(file);
+
     // Change current working directory of the process
     strcpy(pcb->cwd, abspath);
 
@@ -415,6 +435,81 @@ void syscall_get_cwd(proc_cb_t *pcb)
 
     // Get current working directory of process
     strcpy(p_buf, pcb->cwd);
+
+    // Success!
+    res = 0;
+
+fail:
+    // Set result
+    pcb->cpu_ctx.eax = res;
+}
+
+// Mount syscall
+typedef struct __attribute__((packed))
+{
+    uint32_t mp;
+    char *blkdev, *fs_type;
+    uint32_t blkdev_n, fs_type_n;
+} sc_mount_params_t;
+void syscall_mount(proc_cb_t *pcb)
+{
+    int32_t res;
+
+    // Get parameters
+    sc_mount_params_t *params = (sc_mount_params_t *)pcb->cpu_ctx.ebx;
+
+    // Validate parameters struct
+    if (!vmem_validate_user_ptr_mapped(params, sizeof(sc_mount_params_t)))
+    {
+        do_dishonorable_exit();
+        return;
+    }
+
+    // Validate strings
+    if (!vmem_validate_user_ptr_mapped(params->blkdev, params->blkdev_n) ||
+        !vmem_validate_user_ptr_mapped(params->fs_type, params->fs_type_n))
+    {
+        do_dishonorable_exit();
+        return;
+    }
+
+    // Check length of path
+    if (params->blkdev_n > BLKDEV_MAX || params->fs_type_n > FS_TYPE_MAX)
+    {
+        res = E_INVREQ;
+        goto fail;
+    }
+
+    // Copy strings to kernel memroy
+    char blkdev[BLKDEV_MAX + 1], fs_type[FS_TYPE_MAX + 1];
+    memcpy(blkdev, params->blkdev, params->blkdev_n);
+    memcpy(fs_type, params->fs_type, params->fs_type_n);
+    blkdev[params->blkdev_n] = 0;
+    fs_type[params->fs_type_n] = 0;
+
+    // Do mount
+    if ((res = vfs_mount(blkdev, params->mp, fs_type)) < 0)
+        goto fail;
+
+    // Success!
+    res = 0;
+
+fail:
+    // Set result
+    pcb->cpu_ctx.eax = res;
+}
+
+// Unmount syscall
+void syscall_unmount(proc_cb_t *pcb)
+{
+    int32_t res;
+
+    // Get parameters
+    uint32_t mp = pcb->cpu_ctx.ebx;
+
+    // Do unmount
+    if ((res = vfs_unmount(mp)) < 0)
+        goto fail;
 
     // Success!
     res = 0;

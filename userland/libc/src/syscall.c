@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "string.h"
+#include "stdio.h"
 
 #define SYSCALL_INT 0x30
 
@@ -26,6 +27,10 @@ typedef enum
     SYSCALL_EXEC = 0x1001,
     SYSCALL_CHANGE_CWD = 0x1002,
     SYSCALL_GET_CWD = 0x1003,
+
+    // Filesystem syscalls
+    SYSCALL_MOUNT = 0x1100,
+    SYSCALL_UNMOUNT = 0x1101,
 } syscall_n_t;
 
 // Internal function prototyes
@@ -79,6 +84,31 @@ int32_t _g_change_cwd(const char *path)
 int32_t _g_get_cwd(char *buf)
 {
     return syscall_1(SYSCALL_GET_CWD, (uint32_t)buf);
+}
+
+typedef struct __attribute__((packed))
+{
+    uint32_t mp;
+    char *blkdev, *fs_type;
+    uint32_t blkdev_n, fs_type_n;
+} sc_mount_params_t;
+
+int32_t _g_mount(uint32_t mp, const char *dev, const char *fs_type)
+{
+    volatile sc_mount_params_t params = {
+        .mp = mp,
+        .blkdev = dev,
+        .fs_type = fs_type,
+        .blkdev_n = strlen(dev),
+        .fs_type_n = strlen(fs_type),
+    };
+
+    return syscall_1(SYSCALL_MOUNT, (uint32_t)&params);
+}
+
+int32_t _g_unmount(uint32_t mp)
+{
+    return syscall_1(SYSCALL_UNMOUNT, mp);
 }
 
 /* Internal functions */

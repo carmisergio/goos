@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "mini-printf.h"
 
+#include "log.h"
 #include "panic.h"
 #include "mem/vmem.h"
 #include "syscall/syscall.h"
@@ -27,6 +28,7 @@ void handle_exception(interrupt_context_t *ctx)
     // has to be a user program instruction
     if (vmem_validate_user_ptr((void *)ctx->eip, 1))
     {
+        kprintf("[PROC] Exception %u\n", ctx->vec);
         handle_dishonorable_exit(ctx);
         return;
     }
