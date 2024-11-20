@@ -4,10 +4,15 @@
 #include "string.h"
 #include "parse.h"
 
+#define CONSOLE_HEIGHT 25
+#define CONSOLE_WIDTH 80
+
 // Maximums
 #define ARGS_N 16
 #define MAX_ARG 64
 #define MAX_LINE 256
+
+#define LS_BUF_N 24 // Matched to number of lines
 
 // Colors
 #define COLOR_RESET "\033[0m"
@@ -52,6 +57,9 @@ static void builtin_cd(uint32_t argc, argv_t *argv);
 static void builtin_exit(uint32_t argc, argv_t *argv);
 static void builtin_unmount(uint32_t argc, argv_t *argv);
 static void builtin_mount(uint32_t argc, argv_t *argv);
+static void builtin_ls(uint32_t argc, argv_t *argv);
+static void builtin_ls_display_dirent(dirent_t *dirent);
+static bool enter_or_quit();
 
 // Builtin command table
 static builtin_cmd_t builtin_cmds[] = {
@@ -70,6 +78,10 @@ static builtin_cmd_t builtin_cmds[] = {
     {
         .cmd = "mount",
         .func = builtin_mount,
+    },
+    {
+        .cmd = "ls",
+        .func = builtin_ls,
     },
     {
         .cmd = "exit",
@@ -287,7 +299,7 @@ static void builtin_cd(uint32_t argc, argv_t *argv)
     // Check if number of arguments is correct
     if (argc != 2)
     {
-        puts("Usage: cd [path]");
+        puts("Usage: cd <path>");
         return;
     }
 
@@ -329,7 +341,7 @@ static void builtin_unmount(uint32_t argc, argv_t *argv)
     // Check if number of arguments is correct
     if (argc != 2)
     {
-        puts("Usage: unmount [mountpoint]");
+        puts("Usage: unmount <mountpoint>");
         return;
     }
 
@@ -358,7 +370,7 @@ static void builtin_mount(uint32_t argc, argv_t *argv)
     // Check if number of arguments is correct
     if (argc != 4)
     {
-        puts("Usage: mount [mountpoint] [dev] [fs type]");
+        puts("Usage: mount <mountpoint> <dev> <fs type>");
         return;
     }
 
@@ -380,5 +392,112 @@ static void builtin_mount(uint32_t argc, argv_t *argv)
     {
         printf("mount: %serror%s: %s\n", COLOR_HI_RED, COLOR_RESET, error_get_message(res));
         return;
+    }
+}
+
+// Builtin "ls" command
+static void builtin_ls(uint32_t argc, argv_t *argv)
+{
+    fd_t fd;
+    int32_t res;
+
+    if (argc != 1 && argc != 2)
+        puts("Usage: ls [<path>]");
+
+    // Select path if provided
+    char *path = ".";
+    if (argc == 2)
+        path = argv[1];
+
+    // Open directory
+    if ((fd = _g_open(path, FOPT_DIR)) < 0)
+    {
+        printf("ls: %serror opening directory%s: %s\n", COLOR_HI_RED, COLOR_RESET, error_get_message(fd));
+        return;
+    }
+
+    dirent_t dir_buf[LS_BUF_N];
+    uint32_t offset = 0;
+
+    uint32_t total_bytes = 0;
+    uint32_t lines_printed = 0;
+
+    do
+    {
+        // Read directory
+        res = _g_readdir(fd, dir_buf, offset, LS_BUF_N);
+
+        // Check result
+        if (res < 0)
+        {
+            printf("ls: %serror%s: %s\n", COLOR_HI_RED, COLOR_RESET, error_get_message(res));
+            goto end;
+        }
+
+        // Display result
+        for (size_t i = 0; i < res; i++)
+        {
+            builtin_ls_display_dirent(&dir_buf[i]);
+            total_bytes += dir_buf->size;
+
+            // Stop outout when scrolling out of view
+            if (lines_printed >= CONSOLE_HEIGHT - 1)
+            {
+                lines_printed = 0;
+                if (!enter_or_quit())
+                {
+                    goto end;
+                }
+            }
+
+            lines_printed++;
+        }
+
+        offset += res;
+
+    } while (res >= LS_BUF_N);
+
+    // Print total bytes
+    printf("Total bytes: %u\n", total_bytes);
+
+end:
+    // Close directory
+    _g_close(fd);
+}
+
+static void builtin_ls_display_dirent(dirent_t *dirent)
+{
+
+    char *color = COLOR_RESET;
+    char type = 'f';
+    if (dirent->type == FTYPE_DIR)
+    {
+        color = COLOR_HI_BLUE;
+        type = 'd';
+    }
+
+    printf("%c %6u %s%s%s\n", type, dirent->size, color, dirent->name, COLOR_RESET);
+}
+
+// Ask user to press enter to continue, Q to quit
+static bool enter_or_quit()
+{
+    putss("Press [ENTER] to continue, [q] to quit");
+
+    // Wait for keypress
+    while (1)
+    {
+        char c = getchar();
+
+        if (c == '\n')
+        {
+            putss("\n");
+            return true;
+        }
+        else if (c == 'q')
+        {
+            putss("\n");
+            return false;
+        }
     }
 }

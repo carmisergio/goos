@@ -29,7 +29,7 @@ void handle_exception(interrupt_context_t *ctx)
     if (vmem_validate_user_ptr((void *)ctx->eip, 1))
     {
         kprintf("[PROC] Exception %u\n", ctx->vec);
-        handle_dishonorable_exit(ctx);
+        dishon_exit_from_int(ctx);
         return;
     }
 

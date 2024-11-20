@@ -26,8 +26,8 @@ typedef uint32_t fopts;
 // Inode type
 typedef enum
 {
-    VFS_INTYPE_FILE,
-    VFS_INTYPE_DIR,
+    VFS_INTYPE_FILE = 0,
+    VFS_INTYPE_DIR = 1,
 } vfs_inode_type_t;
 
 // Directory entry
@@ -36,7 +36,7 @@ typedef struct
     char name[FILENAME_MAX + 1]; // NULL terminated file name
     vfs_inode_type_t type;       // File or directory
     uint32_t size;               // Size of file
-} vfs_dirent_t;
+} dirent_t;
 
 // VFS inode
 // Represents a file in the virtual file system
@@ -64,9 +64,9 @@ struct _vfs_inode_t
     int64_t (*write)(vfs_inode_t *, uint8_t *, uint32_t, uint32_t);
     //
     // List dirents children of inode
-    // uint32_t readdir(vfs_inode_t *inode, vfs_dirent_t *buf, uint32_t offset, uint32_t n);
+    // uint32_t readdir(vfs_inode_t *inode, dirent_t *buf, uint32_t offset, uint32_t n);
     // Returns the number of dirents read (if less than n, no more dirents to read)
-    int64_t (*readdir)(vfs_inode_t *, vfs_dirent_t *, uint32_t, uint32_t);
+    int64_t (*readdir)(vfs_inode_t *, dirent_t *, uint32_t, uint32_t);
 
     // Lookup child in directory inode by name
     // vfs_inode_t *lookup(vfs_inode_t *inode, vfs_inode_t**res, char *name)
@@ -170,7 +170,7 @@ void vfs_close(vfs_file_handle_t file);
  *    number of directory entries read (>= 0) on success, else error
  *    If the number returned is < n, there are no more directories to read
  */
-int64_t vfs_readdir(vfs_file_handle_t file, vfs_dirent_t *buf, uint32_t offset, uint32_t n);
+int64_t vfs_readdir(vfs_file_handle_t file, dirent_t *buf, uint32_t offset, uint32_t n);
 
 /*
  * Read data from a file

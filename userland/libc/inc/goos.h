@@ -7,8 +7,33 @@
 #include <stdint.h>
 
 //// Constants
+
 #define FILENAME_MAX 32
 #define PATH_MAX 1024
+
+// File open options
+#define FOPT_DIR (1 << 0)   // Want directory from open()
+#define FOPT_WRITE (1 << 1) // Want to be able to write to file
+
+//// Types
+
+// File descriptor
+typedef int32_t fd_t;
+
+// File type
+typedef enum
+{
+    FTYPE_FILE = 0,
+    FTYPE_DIR = 1,
+} file_type_t;
+
+// Directory entry
+typedef struct
+{
+    char name[FILENAME_MAX + 1]; // NULL terminated file name
+    file_type_t type;            // File or directory
+    uint32_t size;               // Size of file
+} dirent_t;
 
 //// System calls
 
@@ -43,7 +68,7 @@ void _g_console_write(const char *str, uint32_t n);
  *   - buf: pointer to the buffer where to read the string
  *   - n: maximum number of characters
  */
-int32_t _g_console_readline(const char *str, uint32_t n);
+int32_t _g_console_readline(char *str, uint32_t n);
 
 /*
  * Get a character from system console
@@ -96,6 +121,43 @@ int32_t _g_mount(uint32_t mp, const char *dev, const char *fs_type);
  *   - mp: mount point
  */
 int32_t _g_unmount(uint32_t mp);
+
+/*
+ * Open file
+ * #### Parameters:
+ *   - path: path to file
+ *   - fopts: open options
+ */
+int32_t _g_open(const char *path, uint32_t fopts);
+
+/*
+ * Close file
+ * #### Parameters:
+ *   - fd: file descriptor
+ */
+int32_t _g_close(fd_t fd);
+
+/*
+ * Read from file
+ * #### Parameters:
+ *   - fd: file descriptor
+ *   - buf: buffer to place data
+ *   - offset: offset from start in bytes
+ *   - n: maximum number of bytes to read
+ * NOTE: when the result is < n, no more bytes available
+ */
+int32_t _g_read(fd_t fd, uint8_t *buf, uint32_t offset, uint32_t n);
+
+/*
+ * Read directory entries
+ * #### Parameters:
+ *   - fd: file descriptor
+ *   - buf: buffer to place dentries
+ *   - offset: offset from start IN NUMBER OF ENTRIES
+ *   - n: maximum number of entries to read
+ * NOTE: when the result is < n, no more entries available
+ */
+int32_t _g_readdir(fd_t fd, dirent_t *buf, uint32_t offset, uint32_t n);
 
 ////// System errors
 #define E_UNKNOWN -1   // Unknown error

@@ -127,7 +127,7 @@ static void inode_destroy(vfs_inode_t *inode);
 static bool check_fat_magically(bpb_t *bpb);
 static void destroy_fs_state(fs_state_t *state);
 static vfs_inode_t *get_root_inode(fs_state_t *fs_state);
-static int64_t inode_readdir(vfs_inode_t *inode, vfs_dirent_t *buf,
+static int64_t inode_readdir(vfs_inode_t *inode, dirent_t *buf,
                              uint32_t offset, uint32_t n);
 static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, const char *name);
 static int64_t inode_read(vfs_inode_t *inode, uint8_t *buf,
@@ -140,6 +140,7 @@ static uint32_t follow_sector_chain(uint32_t *sector_list,
 static bool read_fat_entry(uint32_t *entry, fs_state_t *fs_state, uint32_t cluster);
 static bool check_media_changed(fs_state_t *fs_state);
 static uint32_t cluster_start_sector(fs_state_t *fs_state, uint32_t cluster);
+static void debug_sector_list_chain(uint32_t *sectors, uint32_t n);
 
 void fat_init()
 {
@@ -389,7 +390,7 @@ fail_nomem_sectlist:
 }
 
 //// Inode functions
-static int64_t inode_readdir(vfs_inode_t *inode, vfs_dirent_t *buf,
+static int64_t inode_readdir(vfs_inode_t *inode, dirent_t *buf,
                              uint32_t offset, uint32_t n)
 {
     fs_state_t *fs_state = inode->fs_state;
@@ -406,7 +407,7 @@ static int64_t inode_readdir(vfs_inode_t *inode, vfs_dirent_t *buf,
     uint32_t dirs_read = 0, dirs_skipped = 0;
     bool more_dirs = true;
     bool has_lfn = false; // Do we have a long filename in the buffer?
-    for (size_t i = 0; i < n_sectors && more_dirs && dirs_read < n; i++)
+    for (size_t i = 0; (i < n_sectors) && more_dirs && (dirs_read < n); i++)
     {
         uint32_t block = pdata->sector_list[i];
 
@@ -415,11 +416,13 @@ static int64_t inode_readdir(vfs_inode_t *inode, vfs_dirent_t *buf,
             return E_IOERR;
 
         // Read all directory entries in the sector
-        for (fat_dir_entry_t *entry = (fat_dir_entry_t *)fs_state->io_buf;
-             entry < (fat_dir_entry_t *)fs_state->io_buf + BLOCK_SIZE &&
-             dirs_read < n;
-             entry++)
+        // for (fat_dir_entry_t *entry = (fat_dir_entry_t *)fs_state->io_buf;
+        //      entry < (fat_dir_entry_t *)fs_state->io_buf + BLOCK_SIZE &&
+        //      dirs_read < n;
+        //      entry++)
+        for (size_t j = 0; j < BLOCK_SIZE / sizeof(fat_dir_entry_t); j++)
         {
+            fat_dir_entry_t *entry = &((fat_dir_entry_t *)fs_state->io_buf)[j];
 
             // If first byte of entry is 0, there are no more dirctories
             if (entry->s_name[0] == 0x00)
@@ -775,4 +778,14 @@ static uint32_t cluster_start_sector(fs_state_t *fs_state, uint32_t cluster)
 {
     return fs_state->data_start +
            (cluster - 2) * fs_state->bpb.sectors_per_cluster; // Cluster offset
+}
+
+static void debug_sector_list_chain(uint32_t *sectors, uint32_t n)
+{
+    kprintf("Sector list: \n");
+    for (size_t i = 0; i < n; i++)
+    {
+        kprintf("%u, ", sectors[i]);
+    }
+    kprintf("\n");
 }

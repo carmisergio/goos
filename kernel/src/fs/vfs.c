@@ -33,7 +33,7 @@ static int32_t lookup_path(vfs_inode_t **res, vfs_inode_t *root, const char *pat
 static void superblock_unmount(vfs_superblock_t *sb);
 static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, char *file_name);
 static void inode_destroy(vfs_inode_t *inode);
-static int64_t inode_readdir(vfs_inode_t *inode, vfs_dirent_t *buf,
+static int64_t inode_readdir(vfs_inode_t *inode, dirent_t *buf,
                              uint32_t offset, uint32_t n);
 static int64_t inode_read(vfs_inode_t *inode, uint8_t *buf,
                           uint32_t offset, uint32_t n);
@@ -234,7 +234,7 @@ void vfs_close(vfs_file_handle_t file)
     }
 }
 
-int64_t vfs_readdir(vfs_file_handle_t file, vfs_dirent_t *buf, uint32_t offset, uint32_t n)
+int64_t vfs_readdir(vfs_file_handle_t file, dirent_t *buf, uint32_t offset, uint32_t n)
 {
     // Check if file is valid and open
     if (file >= MAX_FILES || open_files[file].ref_count == 0)
@@ -381,7 +381,7 @@ static void inode_destroy(vfs_inode_t *inode)
 }
 
 // N is the number of directory entries which fit in the buffer
-static int64_t inode_readdir(vfs_inode_t *inode, vfs_dirent_t *buf,
+static int64_t inode_readdir(vfs_inode_t *inode, dirent_t *buf,
                              uint32_t offset, uint32_t n)
 {
     if (!inode->readdir)

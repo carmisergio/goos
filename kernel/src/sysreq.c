@@ -43,6 +43,6 @@ void kbd_event_receiver(kbd_event_t e)
     {
         // Ignore CTRL + C in init process
         if (proc_cur()->parent)
-            handle_dishonorable_exit(interrupt_get_cur_ctx());
+            dishon_exit_from_int(interrupt_get_cur_ctx());
     }
 }

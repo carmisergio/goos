@@ -7,6 +7,16 @@
 #include "mem/vmem.h"
 #include "fs/vfs.h"
 
+#define MAX_FILES 16
+
+typedef struct
+{
+    bool used;
+
+    // Handle of the corresponding VFS file
+    vfs_file_handle_t vfs_handle;
+} proc_file_t;
+
 // Process control block
 typedef struct _proc_cb_t
 {
@@ -22,6 +32,9 @@ typedef struct _proc_cb_t
 
     // Current working directory
     char cwd[PATH_MAX + 1];
+
+    // Open files
+    proc_file_t files[MAX_FILES];
 } proc_cb_t;
 
 /*
@@ -52,5 +65,25 @@ proc_cb_t *proc_cur();
  * entry: entrypoint of the process
  */
 void proc_setup_cpu_ctx(void *entry);
+
+/*
+ * Open file system call
+ */
+void syscall_open(proc_cb_t *pcb);
+
+/*
+ * Close file system call
+ */
+void syscall_close(proc_cb_t *pcb);
+
+/*
+ * Read dir system call
+ */
+void syscall_readdir(proc_cb_t *pcb);
+
+/*
+ * Read system call
+ */
+void syscall_read(proc_cb_t *pcb);
 
 #endif
