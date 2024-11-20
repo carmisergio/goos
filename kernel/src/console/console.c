@@ -286,6 +286,29 @@ int32_t console_readline(char *s, size_t n)
                     do_backspace();
                 read_n = 0;
                 break;
+            case KS_w:
+                // Delete any spaces after the page
+                while (read_n > 0)
+                {
+                    if (s[read_n - 1] != ' ')
+                        break;
+
+                    do_backspace();
+                    read_n--;
+                }
+
+                // Delete previous word
+                while (read_n > 0)
+                {
+
+                    do_backspace();
+                    read_n--;
+
+                    if (s[read_n - 1] == ' ')
+                        break;
+                }
+
+                break;
             }
         }
 

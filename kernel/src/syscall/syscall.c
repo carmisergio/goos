@@ -327,6 +327,8 @@ void syscall_exec(proc_cb_t *pcb)
         goto fail;
     }
 
+    kprintf("[SYSCALL] Exec: file opened: %s\n", abspath);
+
     // Create new process
     if ((res = proc_push()) < 0)
     {

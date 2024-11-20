@@ -82,6 +82,7 @@ int32_t do_load_segment(vfs_file_handle_t file, elf_ph_ent_t *ph);
 int32_t elf_load(vfs_file_handle_t file, void **entry)
 {
     int32_t res;
+    elf_ph_ent_t *ph_table = NULL;
 
     // Load ELF header into memory
     elf_header_t header;
@@ -89,13 +90,16 @@ int32_t elf_load(vfs_file_handle_t file, void **entry)
                             E_NOTELF)) < 0)
         goto fail;
 
+    kprintf("[ELF] Header read succesfully\n");
+
     // Check ELF format
     if ((res = check_elf_format(&header)) < 0)
         goto fail;
 
+    kprintf("[ELF] Format OK\n");
+
     // Allocate space for program header table
     uint32_t ph_table_size = sizeof(elf_ph_ent_t) * header.ph_ent_num;
-    elf_ph_ent_t *ph_table;
     if ((ph_table = kalloc(ph_table_size)) == NULL)
     {
         res = E_NOMEM;
@@ -121,6 +125,7 @@ int32_t elf_load(vfs_file_handle_t file, void **entry)
     return 0;
 
 fail:
+    kprintf("[ELF] Fail\n");
     // Free program header table
     if (ph_table)
         kfree(ph_table);
