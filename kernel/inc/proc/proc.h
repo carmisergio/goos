@@ -2,6 +2,7 @@
 #define _PROC_POC_H 1
 
 #include <stdint.h>
+#include "sync.h"
 
 #include "proc/ctx.h"
 #include "mem/vmem.h"
@@ -85,5 +86,20 @@ void syscall_readdir(proc_cb_t *pcb);
  * Read system call
  */
 void syscall_read(proc_cb_t *pcb);
+
+/*
+ * Check if the process can terminate
+ */
+bool proc_can_terminate();
+
+/*
+ * Lock Make sure process can't exit
+ */
+void set_terminate_lock();
+
+/*
+ * Now processes can be terminated
+ */
+void release_terminate_lock();
 
 #endif

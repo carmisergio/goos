@@ -270,12 +270,12 @@ static void execute_program(uint32_t argc, argv_t *argv)
     int32_t res, status;
     if ((res = _g_exec(cmd, &status)) < 0)
     {
-        if (res == E_NOENT)
+        if (res == E_NOENT || res == E_NOTELF || res == E_WRONGTYPE)
             // Command not found
-            printf("%sUnknown command%s: %s\n", COLOR_HI_RED, COLOR_RESET, cmd);
+            printf("%scommand not found%s: %s\n", COLOR_HI_RED, COLOR_RESET, cmd);
         else
             // exec() call error
-            printf("%sExec call error%s: %s\n", COLOR_HI_RED, COLOR_RESET, error_get_message(res));
+            printf("exec(): %serror%s: %s\n", COLOR_HI_RED, COLOR_RESET, error_get_message(res));
         return;
     }
 
@@ -316,7 +316,7 @@ static void builtin_cd(uint32_t argc, argv_t *argv)
         else if (res == E_WRONGTYPE)
             printf("cd: not a directory: %s\n", path);
         else
-            // exec() call error
+            // cd() call error
             printf("cd: %serror%s: %s\n", COLOR_HI_RED, COLOR_RESET, error_get_message(res));
         return;
     }
@@ -330,7 +330,7 @@ static void builtin_exit(uint32_t argc, argv_t *argv)
     int32_t res;
     if ((res = _g_exit(0)) < 0)
     {
-        printf("exit: %serror%s: %s\n", COLOR_HI_RED, COLOR_RESET, error_get_message(res));
+        printf("exit(): %serror%s: %s\n", COLOR_HI_RED, COLOR_RESET, error_get_message(res));
         return;
     }
 }
@@ -390,7 +390,12 @@ static void builtin_mount(uint32_t argc, argv_t *argv)
     int32_t res;
     if ((res = _g_mount(mp, dev, fs_type)) < 0)
     {
-        printf("mount: %serror%s: %s\n", COLOR_HI_RED, COLOR_RESET, error_get_message(res));
+        if (res == E_NOENT)
+            printf("mount: %serror%s: device not existent or already mounted\n", COLOR_HI_RED, COLOR_RESET);
+        else if (res == E_NOMP)
+            return;
+        else
+            printf("mount: %serror%s: %s\n", COLOR_HI_RED, COLOR_RESET, error_get_message(res));
         return;
     }
 }
@@ -412,7 +417,12 @@ static void builtin_ls(uint32_t argc, argv_t *argv)
     // Open directory
     if ((fd = _g_open(path, FOPT_DIR)) < 0)
     {
-        printf("ls: %serror opening directory%s: %s\n", COLOR_HI_RED, COLOR_RESET, error_get_message(fd));
+        if (fd == E_NOENT)
+            printf("ls: no such directory: %s\n", path);
+        else if (fd == E_WRONGTYPE)
+            printf("ls: not a directory: %s\n", path);
+        else
+            printf("ls: %serror%s: %s\n", COLOR_HI_RED, COLOR_RESET, error_get_message(fd));
         return;
     }
 
@@ -438,7 +448,7 @@ static void builtin_ls(uint32_t argc, argv_t *argv)
         for (size_t i = 0; i < res; i++)
         {
             builtin_ls_display_dirent(&dir_buf[i]);
-            total_bytes += dir_buf->size;
+            total_bytes += dir_buf[i].size;
 
             // Stop outout when scrolling out of view
             if (lines_printed >= CONSOLE_HEIGHT - 1)

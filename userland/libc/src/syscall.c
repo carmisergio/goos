@@ -66,7 +66,7 @@ int32_t _g_console_readline(char *str, uint32_t n)
     return syscall_2_1(SYSCALL_CONSOLE_READLINE, (uint32_t)str, n);
 }
 
-char console_getchar()
+char _g_console_getchar()
 {
     return syscall_0_1(SYSCALL_CONSOLE_GETCHAR);
 }

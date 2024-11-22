@@ -74,7 +74,7 @@ int32_t _g_console_readline(char *str, uint32_t n);
  * Get a character from system console
  * Doesn't echo characters
  */
-char console_getchar();
+char _g_console_getchar();
 
 /*
  * Return control to the parent process

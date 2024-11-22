@@ -42,7 +42,7 @@ void kbd_event_receiver(kbd_event_t e)
         !e.mod.shift)
     {
         // Ignore CTRL + C in init process
-        if (proc_cur()->parent)
+        if (proc_cur()->parent && proc_can_terminate())
             dishon_exit_from_int(interrupt_get_cur_ctx());
     }
 }

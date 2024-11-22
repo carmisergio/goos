@@ -36,3 +36,8 @@ bool slock_try_acquire(slock_t *l)
     sti();
     return res;
 }
+
+bool slock_peek(slock_t *l)
+{
+    return *l;
+}

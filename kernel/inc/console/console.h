@@ -65,7 +65,7 @@ int32_t console_readline(char *s, size_t n);
  * Doesn't echo characters
  * #### Returns: character
  */
-char console_getchar();
+char _g_console_getchar();
 
 /**
  * Clear console

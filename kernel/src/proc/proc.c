@@ -35,11 +35,13 @@ static bool find_free_file(proc_file_t files[], uint32_t *idx);
 // Global objects
 proc_cb_t *cur_proc;  // Current process
 slock_t cur_proc_lck; // Lock to the current process variable
+slock_t terminate_lock;
 
 void proc_init()
 {
-    // Initialize lock
+    // Initialize locks
     slock_init(&cur_proc_lck);
+    slock_init(&terminate_lock);
 
     // Allocate a PCB for the init process
     proc_cb_t *pcb = kalloc(sizeof(proc_cb_t));
@@ -256,6 +258,8 @@ void syscall_open(proc_cb_t *pcb)
     }
     proc_file_t *file = &pcb->files[file_handle];
 
+    set_terminate_lock();
+
     // Open file
     vfs_file_handle_t vfs_file;
     if ((vfs_file = vfs_open(abspath, p_fopts)) < 0)
@@ -272,6 +276,7 @@ void syscall_open(proc_cb_t *pcb)
     res = file_handle;
 
 fail:
+    release_terminate_lock();
     pcb->cpu_ctx.eax = (uint32_t)res;
 }
 
@@ -291,6 +296,8 @@ void syscall_close(proc_cb_t *pcb)
     }
     proc_file_t *file = &pcb->files[p_fd];
 
+    set_terminate_lock();
+
     // Close file
     vfs_close(file->vfs_handle);
 
@@ -298,6 +305,7 @@ void syscall_close(proc_cb_t *pcb)
 
     res = 0;
 fail:
+    release_terminate_lock();
     pcb->cpu_ctx.eax = (uint32_t)res;
 }
 
@@ -336,10 +344,13 @@ void syscall_readdir(proc_cb_t *pcb)
         return;
     }
 
+    set_terminate_lock();
+
     // Execute readdir operation
     res = vfs_readdir(pcb->files[params->fd].vfs_handle, params->buf, params->offset, params->n);
 
 fail:
+    release_terminate_lock();
     pcb->cpu_ctx.eax = (uint32_t)res;
 }
 
@@ -378,11 +389,30 @@ void syscall_read(proc_cb_t *pcb)
         return;
     }
 
+    set_terminate_lock();
+
     // Execute readdir operation
     res = vfs_read(pcb->files[params->fd].vfs_handle, params->buf, params->offset, params->n);
 
 fail:
+    release_terminate_lock();
     pcb->cpu_ctx.eax = (uint32_t)res;
+}
+
+bool proc_can_terminate()
+{
+    return !slock_peek(&terminate_lock);
+}
+
+void set_terminate_lock()
+{
+    if (!slock_try_acquire(&terminate_lock))
+        kprintf("[PROC] WARN!! Terminate lock already set!\n");
+}
+
+void release_terminate_lock()
+{
+    slock_release(&terminate_lock);
 }
 
 static bool alloc_proc_stack(uint32_t npages)

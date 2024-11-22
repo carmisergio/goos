@@ -6,11 +6,10 @@ OUT_DIR:=bin
 
 # Programs
 PROGS:= \
-$(OUT_DIR)/minimal \
-$(OUT_DIR)/child \
 $(OUT_DIR)/hello \
 $(OUT_DIR)/shell \
 $(OUT_DIR)/btlships \
+$(OUT_DIR)/cowsay \
 
 # Standard library
 STDLIB_DIR:=../libc

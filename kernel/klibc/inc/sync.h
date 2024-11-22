@@ -19,3 +19,7 @@ void slock_acquire(slock_t *l);
 // If lock is unlocked, acquire it.
 // Returns: true if was able to acquire lock
 bool slock_try_acquire(slock_t *l);
+
+// Check if a lock is locked
+// Returns true if the lock is currently locked
+bool slock_peek(slock_t *l);

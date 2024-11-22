@@ -298,7 +298,7 @@ void syscall_console_readline(proc_cb_t *pcb)
 // Console getchar syscall
 void syscall_console_getchar(proc_cb_t *pcb)
 {
-    uint32_t res = (uint32_t)console_getchar();
+    uint32_t res = (uint32_t)_g_console_getchar();
 
     // Set return value
     pcb->cpu_ctx.eax = res;
@@ -310,11 +310,15 @@ void syscall_exit(proc_cb_t *pcb)
     int32_t retval = pcb->cpu_ctx.ebx;
     int32_t res;
 
+    set_terminate_lock();
+
     // Exit from current process
     if ((res = proc_pop()) < 0)
     {
         // Failure
         // Return to current process
+
+        release_terminate_lock();
 
         // Return value to caller process
         pcb->cpu_ctx.eax = (uint32_t)res;
@@ -323,6 +327,8 @@ void syscall_exit(proc_cb_t *pcb)
 
     // Recover new current proces
     pcb = proc_cur();
+
+    release_terminate_lock();
 
     // This will appear to the parent process as the result from the
     // exec() call
@@ -366,6 +372,8 @@ void syscall_exec(proc_cb_t *pcb)
         goto fail;
     }
 
+    set_terminate_lock();
+
     // Open file
     vfs_file_handle_t file;
     if ((file = vfs_open(abspath, 0)) < 0)
@@ -400,12 +408,15 @@ void syscall_exec(proc_cb_t *pcb)
     // Set up process CPU context
     proc_setup_cpu_ctx(entry);
 
+    release_terminate_lock();
+
     return;
 fail_closefile:
     vfs_close(file);
 fail_destroyproc:
     proc_pop();
 fail:
+    release_terminate_lock();
     // Return value to caller process
     pcb->cpu_ctx.eax = (uint32_t)res;
 }
@@ -446,6 +457,8 @@ void syscall_change_cwd(proc_cb_t *pcb)
         goto fail;
     }
 
+    set_terminate_lock();
+
     // Check if directory exists
     int32_t file;
     if ((file = vfs_open(abspath, FOPT_DIR)) < 0)
@@ -462,6 +475,7 @@ void syscall_change_cwd(proc_cb_t *pcb)
     res = 0;
 
 fail:
+    release_terminate_lock();
     // Set result
     pcb->cpu_ctx.eax = res;
 }
@@ -536,6 +550,8 @@ void syscall_mount(proc_cb_t *pcb)
     blkdev[params->blkdev_n] = 0;
     fs_type[params->fs_type_n] = 0;
 
+    set_terminate_lock();
+
     // Do mount
     if ((res = vfs_mount(blkdev, params->mp, fs_type)) < 0)
         goto fail;
@@ -544,6 +560,7 @@ void syscall_mount(proc_cb_t *pcb)
     res = 0;
 
 fail:
+    release_terminate_lock();
     // Set result
     pcb->cpu_ctx.eax = res;
 }
@@ -556,6 +573,8 @@ void syscall_unmount(proc_cb_t *pcb)
     // Get parameters
     uint32_t mp = pcb->cpu_ctx.ebx;
 
+    set_terminate_lock();
+
     // Do unmount
     if ((res = vfs_unmount(mp)) < 0)
         goto fail;
@@ -564,6 +583,7 @@ void syscall_unmount(proc_cb_t *pcb)
     res = 0;
 
 fail:
+    release_terminate_lock();
     // Set result
     pcb->cpu_ctx.eax = res;
 }

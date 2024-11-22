@@ -28,7 +28,7 @@ char *getsn(char *buf, size_t n)
 
 int getchar()
 {
-    return console_getchar();
+    return _g_console_getchar();
 }
 
 void printf(const char *fmt, ...)
