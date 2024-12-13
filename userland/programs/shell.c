@@ -407,7 +407,10 @@ static void builtin_ls(uint32_t argc, argv_t *argv)
     int32_t res;
 
     if (argc != 1 && argc != 2)
+    {
         puts("Usage: ls [<path>]");
+        return;
+    }
 
     // Select path if provided
     char *path = ".";
@@ -444,6 +447,9 @@ static void builtin_ls(uint32_t argc, argv_t *argv)
             goto end;
         }
 
+        // printf("Buf: 0x%x\n", dir_buf);
+        // printf("Dir2: %s\n", dir_buf[1].name);
+
         // Display result
         for (size_t i = 0; i < res; i++)
         {
@@ -479,14 +485,16 @@ static void builtin_ls_display_dirent(dirent_t *dirent)
 {
 
     char *color = COLOR_RESET;
-    char type = 'f';
+    char type = '.';
+    char *post = "";
     if (dirent->type == FTYPE_DIR)
     {
         color = COLOR_HI_BLUE;
-        type = 'd';
+        type = '#';
+        post = "/";
     }
 
-    printf("%c %6u %s%s%s\n", type, dirent->size, color, dirent->name, COLOR_RESET);
+    printf("%c %6u %s%s%s%s\n", type, dirent->size, color, dirent->name, COLOR_RESET, post);
 }
 
 // Ask user to press enter to continue, Q to quit

@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 // Limits for filename and path
-#define FILENAME_MAX 32
+#define FILENAME_MAX 64
 #define PATH_MAX 1024
 #define BLKDEV_MAX 8
 #define FS_TYPE_MAX 8

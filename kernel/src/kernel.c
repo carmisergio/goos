@@ -39,7 +39,7 @@
 
 const char *SYSTEM_DISK_DEV = "fd0";
 const char *SYSTEM_DISK_FS = "fat";
-const char *INIT_BIN = "0:/BIN/SHELL";
+const char *INIT_BIN = "0:/bin/shell";
 
 // Global Boot information structure
 boot_info_t boot_info;
@@ -49,34 +49,6 @@ void subsystems_init();
 void drivers_init();
 bool userspace_init();
 int32_t start_init_proc();
-
-void test_canonicize()
-{
-    char res[PATH_MAX + 1];
-    char canon[PATH_MAX + 1];
-    char buf[PATH_MAX + 1];
-    while (true)
-    {
-        kprintf("> ");
-        uint32_t n = console_readline(buf, PATH_MAX);
-        buf[n] = 0;
-
-        if (!path_canonicalize(canon, buf))
-        {
-            kprintf("ERR!\n");
-            continue;
-        }
-
-        kprintf("* ");
-        n = console_readline(buf, PATH_MAX);
-        buf[n] = 0;
-
-        if (path_resolve_relative(res, canon, buf))
-            kprintf("Result: %s\n", res);
-        else
-            kprintf("Err!\n");
-    }
-}
 
 /*
  * Main kernel entry point

@@ -8,7 +8,7 @@
 
 //// Constants
 
-#define FILENAME_MAX 32
+#define FILENAME_MAX 64
 #define PATH_MAX 1024
 
 // File open options

@@ -19,7 +19,7 @@ void *memmove(void *dst, const void *src, size_t n)
     unsigned char *dstc = (unsigned char *)dst;
     unsigned char *srcc = (unsigned char *)src;
 
-    if (dst < src)
+    if (dst > src)
     {
         // Copy forwards
         for (size_t i = 0; i < n; i++)

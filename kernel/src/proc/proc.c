@@ -349,6 +349,9 @@ void syscall_readdir(proc_cb_t *pcb)
     // Execute readdir operation
     res = vfs_readdir(pcb->files[params->fd].vfs_handle, params->buf, params->offset, params->n);
 
+    kprintf("Buf: 0x%x\n", params->buf);
+    kprintf("Dir1: %s\n", params->buf[1].name);
+
 fail:
     release_terminate_lock();
     pcb->cpu_ctx.eax = (uint32_t)res;

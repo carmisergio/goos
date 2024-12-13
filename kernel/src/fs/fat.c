@@ -93,6 +93,7 @@ typedef struct __attribute__((packed))
 #define ATTR_DIR 0x10
 #define ATTR_ARCHIVE 0x20
 #define ATTR_LFN (ATTR_RO | ATTR_HIDDEN | ATTR_SYSTEM | ATTR_VOLID)
+#define LFN_END 0x40
 
 // FAT filesystem private state
 typedef struct
@@ -118,6 +119,17 @@ typedef struct
     uint32_t *sector_list; // List of sectors
 } inode_private_t;
 
+#define LFN_MAX 64
+#define LFN_CHUNK_MAX 13
+
+// Long filename buffer
+typedef struct
+{
+    char name[LFN_MAX];
+    size_t n; // Number of characters in the name
+    bool corrupt;
+} lfn_buf_t;
+
 // Internal functions
 static int32_t fs_type_mount(const char *dev, vfs_superblock_t **mount);
 static bool read_bpb(fs_state_t *fs_state);
@@ -133,6 +145,13 @@ static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, const char *n
 static int64_t inode_read(vfs_inode_t *inode, uint8_t *buf,
                           uint32_t offset, uint32_t n);
 static void direntry_name_from_short(char *name, fat_dir_entry_t *entry);
+static void direntry_name_from_lfn(char *name, lfn_buf_t *lfn_buf);
+static void str_to_lower(char *str);
+static void lfn_buf_init(lfn_buf_t *buf);
+static void process_lfn_entry(lfn_buf_t *buf, fat_dir_entry_t *entry);
+static size_t lfn_parse_chunk(char *chunk, fat_dir_entry_t *entry);
+static char lfn_to_char(uint16_t c);
+static void lfn_buf_init(lfn_buf_t *buf);
 static inline uint32_t nblocks(uint32_t size);
 static void free_inode_pdata(inode_private_t *pdata);
 static uint32_t follow_sector_chain(uint32_t *sector_list,
@@ -219,6 +238,7 @@ static int32_t fs_type_mount(const char *dev, vfs_superblock_t **superblock)
 fail:
     destroy_fs_state(fs_state);
 fail_nostate:
+    blkdev_release_handle(dev_handle);
     return E_UNKNOWN;
 }
 
@@ -403,10 +423,13 @@ static int64_t inode_readdir(vfs_inode_t *inode, dirent_t *buf,
     // Find out number of directory sectors
     uint32_t n_sectors = inode->size / BLOCK_SIZE;
 
+    // Initialize LFN buffer
+    lfn_buf_t lfn_buf;
+    lfn_buf_init(&lfn_buf);
+
     // Read directory sector by sector
     uint32_t dirs_read = 0, dirs_skipped = 0;
     bool more_dirs = true;
-    bool has_lfn = false; // Do we have a long filename in the buffer?
     for (size_t i = 0; (i < n_sectors) && more_dirs && (dirs_read < n); i++)
     {
         uint32_t block = pdata->sector_list[i];
@@ -416,10 +439,6 @@ static int64_t inode_readdir(vfs_inode_t *inode, dirent_t *buf,
             return E_IOERR;
 
         // Read all directory entries in the sector
-        // for (fat_dir_entry_t *entry = (fat_dir_entry_t *)fs_state->io_buf;
-        //      entry < (fat_dir_entry_t *)fs_state->io_buf + BLOCK_SIZE &&
-        //      dirs_read < n;
-        //      entry++)
         for (size_t j = 0; j < BLOCK_SIZE / sizeof(fat_dir_entry_t); j++)
         {
             fat_dir_entry_t *entry = &((fat_dir_entry_t *)fs_state->io_buf)[j];
@@ -439,9 +458,7 @@ static int64_t inode_readdir(vfs_inode_t *inode, dirent_t *buf,
             // Check if this is a long filename entry
             if (entry->attrs == ATTR_LFN)
             {
-                // direntry_process_lfn(buf[dirs_read].name, entry);
-                // has_lfn = true;
-                // TODO: add LFN support
+                process_lfn_entry(&lfn_buf, entry);
                 continue;
             }
 
@@ -449,14 +466,21 @@ static int64_t inode_readdir(vfs_inode_t *inode, dirent_t *buf,
             if (entry->attrs & ATTR_VOLID)
                 continue;
 
-            // Fill directory entry
-            if (!has_lfn)
+            // Check if an LFN was read
+            if (lfn_buf.n)
+                direntry_name_from_lfn(buf[dirs_read].name, &lfn_buf);
+            else
                 direntry_name_from_short(buf[dirs_read].name, entry);
+
+            // Reset LFN buffer
+            lfn_buf_init(&lfn_buf);
 
             // Ignore metadirectories '.' and '..'
             if (strcmp(buf[dirs_read].name, "..") == 0 ||
                 strcmp(buf[dirs_read].name, ".") == 0)
                 continue;
+
+            kprintf("Dir: %s\n", buf[dirs_read].name);
 
             if (dirs_skipped == offset)
             {
@@ -469,7 +493,7 @@ static int64_t inode_readdir(vfs_inode_t *inode, dirent_t *buf,
                 dirs_skipped++;
             }
 
-            has_lfn = false;
+            lfn_buf_init(&lfn_buf);
         }
     }
 
@@ -488,10 +512,13 @@ static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, const char *n
     if (check_media_changed(fs_state))
         return E_MDCHNG;
 
+    // Initialize LFN buffer
+    lfn_buf_t lfn_buf;
+    lfn_buf_init(&lfn_buf);
+
     // Read directory sector by sector
     uint32_t dirs_read = 0;
     bool more_dirs = true;
-    // bool has_lfn = false; // Do we have a long filename in the buffer?
     char name_buf[FILENAME_MAX];
     for (size_t i = 0; i < n_sectors && more_dirs; i++)
     {
@@ -521,9 +548,7 @@ static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, const char *n
             // Check if this is a long filename entry
             if (entry->attrs == ATTR_LFN)
             {
-                // direntry_process_lfn(buf[dirs_read].name, entry);
-                // has_lfn = true;
-                // TODO: add LFN support
+                process_lfn_entry(&lfn_buf, entry);
                 continue;
             }
 
@@ -532,7 +557,13 @@ static int32_t inode_lookup(vfs_inode_t *inode, vfs_inode_t **res, const char *n
                 continue;
 
             // Get name of entry
-            direntry_name_from_short(name_buf, entry);
+            if (lfn_buf.n)
+                direntry_name_from_lfn(name_buf, &lfn_buf);
+            else
+                direntry_name_from_short(name_buf, entry);
+
+            // Reset LFN buffer
+            lfn_buf_init(&lfn_buf);
 
             // Ignore metadirectories '.' and '..'
             if (strcmp(name_buf, "..") == 0 ||
@@ -692,6 +723,138 @@ static void direntry_name_from_short(char *name, fat_dir_entry_t *entry)
 
     // Null-terminate name
     name[n] = 0;
+
+    // Convert name to lowercase (Linux does this)
+    str_to_lower(name);
+}
+
+// Fill directory entry buffer from LFN
+static void direntry_name_from_lfn(char *name, lfn_buf_t *lfn_buf)
+{
+    memcpy(name, lfn_buf->name, lfn_buf->n);
+    name[lfn_buf->n] = 0;
+}
+
+// Convert string to lowercase
+static void str_to_lower(char *str)
+{
+    while (*str)
+    {
+        if (*str >= 'A' && *str <= 'Z')
+            *str = *str - 'A' + 'a';
+        str++;
+    }
+}
+
+// Initialize lfn buffer
+static void lfn_buf_init(lfn_buf_t *buf)
+{
+    buf->n = 0;
+    buf->corrupt = false;
+}
+
+// Add a LFN entry to the filename
+static void process_lfn_entry(lfn_buf_t *buf, fat_dir_entry_t *entry)
+{
+    char chunk[LFN_CHUNK_MAX]; // Current chunk
+
+    // Don't process if the entry is already corrupt
+    // if (buf->corrupt)
+    //     return;
+
+    // First entry check
+    // If the first entry we find is not the last, consider LFN as corrupt
+    // if (buf->n == 0 && !(entry->l_order & LFN_END))
+    // {
+    //     buf->corrupt = true;
+    //     return;
+    // }
+
+    // Get name chunk
+    size_t n = lfn_parse_chunk(chunk, entry);
+
+    // Shift buffer
+    for (size_t i = 0; i < buf->n; i++)
+    {
+        // Copy backwards
+        size_t p = buf->n - i - 1;
+
+        if (n + p < LFN_MAX)
+            buf->name[n + p] = buf->name[p];
+    }
+
+    // Copy new characters
+    memcpy(buf->name, chunk, n);
+    buf->n += n;
+}
+
+// Process entry fields and consolidate them in a single string
+// Returns the length of the parsed chunk
+static size_t lfn_parse_chunk(char *chunk, fat_dir_entry_t *entry)
+{
+    size_t n = 0;
+
+    // First name field
+    for (size_t i = 0; i < 5; i++)
+    {
+        // Terminate on null
+        if (!entry->l_name1[i])
+            return n;
+
+        chunk[n] = lfn_to_char(entry->l_name1[i]);
+        n++;
+    }
+
+    // Second name field
+    for (size_t i = 0; i < 6; i++)
+    {
+        // Terminate on null
+        if (!entry->l_name2[i])
+            return n;
+
+        chunk[n] = lfn_to_char(entry->l_name2[i]);
+        n++;
+    }
+
+    // Third name field
+    for (size_t i = 0; i < 2; i++)
+    {
+        // Terminate on null
+        if (!entry->l_name3[i])
+            return n;
+
+        chunk[n] = lfn_to_char(entry->l_name3[i]);
+        n++;
+    }
+
+    return n;
+}
+
+// Add a character to the LFN buf
+// Returns false if the character should be counted
+// static bool lfn_putchar(lfn_buf_t *buf, uint16_t c)
+// {
+
+//     // NULL characters represent the last
+//     if (c == 0)
+//         return false;
+
+//     // Only insert if there is space available
+//     if (buf->n < LFN_MAX)
+//     {
+//         buf->name[buf->n] = lfn_to_char(c);
+//         buf->n++;
+//     }
+// }
+
+// Convert character from LFN to char
+static char lfn_to_char(uint16_t c)
+{
+    if (c < 128)
+        return c;
+
+    // As per the spec, unsupported characters should be presented as '_'
+    return '_';
 }
 
 static inline uint32_t nblocks(uint32_t size)
